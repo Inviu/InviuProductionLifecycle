@@ -8,7 +8,9 @@ export const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!username || !password) {
@@ -16,9 +18,14 @@ export const LoginPage = () => {
       return;
     }
 
-    const success = login(username, password);
-    if (!success) {
-      setError('Invalid credentials');
+    try {
+      setSubmitting(true);
+      setError('');
+      await login(username, password);
+    } catch (err) {
+      setError(err.message || 'Invalid credentials');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -79,15 +86,18 @@ export const LoginPage = () => {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-200 shadow-lg hover:shadow-xl"
+            disabled={submitting}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition duration-200 shadow-lg hover:shadow-xl disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
-            Sign In
+            {submitting ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Demo: Use any username and password to login
-        </p>
+        <div className="mt-6 text-center text-sm text-slate-500 space-y-1">
+          <p className="font-medium text-slate-600">Demo accounts</p>
+          <p>Manager — <span className="font-mono">manager / manager123</span></p>
+          <p>Operator — <span className="font-mono">operator / operator123</span></p>
+        </div>
       </div>
     </div>
   );
