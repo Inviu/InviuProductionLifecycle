@@ -109,20 +109,21 @@ app.get("/api/getAllProducts", async (req, res) => {
 app.get("/api/getprocess/:productId", async (req, res) => {
   try {
     const { productId } = req.params;
-    const mappings = await db
-      .select({ processId: productProcessMappingTable.processId })
-      .from(productProcessMappingTable)
-      .where(eq(productProcessMappingTable.productId, Number(productId)));
-
-    if (mappings.length === 0) {
-      return res.status(200).json([]);
-    }
-
-    const processIds = mappings.map((m) => m.processId);
+    // Join so processes come back in the product's defined sequence
+    // (mapping insertion order), not whatever order the DB returns.
     const processes = await db
-      .select()
-      .from(processesTable)
-      .where(inArray(processesTable.id, processIds));
+      .select({
+        id: processesTable.id,
+        name: processesTable.name,
+        createdAt: processesTable.createdAt,
+      })
+      .from(productProcessMappingTable)
+      .innerJoin(
+        processesTable,
+        eq(processesTable.id, productProcessMappingTable.processId)
+      )
+      .where(eq(productProcessMappingTable.productId, Number(productId)))
+      .orderBy(productProcessMappingTable.id);
 
     res.status(200).json(processes);
   } catch (error) {
@@ -253,7 +254,22 @@ app.post("/api/createProductionEntry", async (req, res) => {
 
 app.get("/api/work-orders", async (req, res) => {
   try {
-    const orders = await db.select().from(ordersTable);
+    // Join product so the list can show the product name (the UI's
+    // "Product Type" column and product filter rely on this).
+    const orders = await db
+      .select({
+        id: ordersTable.id,
+        customerName: ordersTable.customerName,
+        productId: ordersTable.productId,
+        productType: productsTable.name,
+        quantity: ordersTable.quantity,
+        status: ordersTable.status,
+        createdDate: ordersTable.createdDate,
+        dueDate: ordersTable.dueDate,
+      })
+      .from(ordersTable)
+      .innerJoin(productsTable, eq(productsTable.id, ordersTable.productId))
+      .orderBy(ordersTable.id);
 
     res.status(200).json(orders);
   } catch (error) {

@@ -64,16 +64,11 @@ export const ProcessCard = ({
       }
     }
 
-    // 🔹 NEW: fetch inventory ONLY while updating order
+    // Fetch inventory ONLY while updating an existing order
     if (orderId) {
       try {
-        const res = await fetch(
-          `http://localhost:5001/api/inventory/product/${productId}/process/${process.processId}`
-        );
-        const data = await res.json();
-        console.log(data, "data");
+        const data = await api.inventory.get(productId, process.processId);
         setInventoryAvailable(data.availableQuantity || 0);
-        // setInventoryAvailable(10);
       } catch (e) {
         console.error("Failed to fetch inventory", e);
       }

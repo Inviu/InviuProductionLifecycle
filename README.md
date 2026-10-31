@@ -66,32 +66,51 @@ The core philosophy is simple: **a unit cannot enter a process until the previou
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL (local or cloud)
+- PostgreSQL — local (Docker) or a cloud provider such as Neon
 - npm
+
+> **Auth is a demo stub.** Any username/password logs in. Real
+> authentication is Phase 1 — see [ROADMAP.md](./ROADMAP.md).
 
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/flowforge.git
-cd flowforge
+git clone https://github.com/Inviu/InviuProductionLifecycle.git
+cd InviuProductionLifecycle
 ```
 
-**Backend**
+**1. Start a database**
+
+Local (Docker) — easiest:
+
+```bash
+docker compose up -d   # Postgres 16 on localhost:5432 (user/pass/db: flowforge)
+```
+
+Or use a cloud Postgres (e.g. Neon) and copy its connection string.
+
+**2. Backend**
 
 ```bash
 cd backend
 npm install
-cp .env.example .env   # configure DATABASE_URL and PORT
-npm run dev            # starts on PORT 5001 by default
+cp .env.example .env    # set DATABASE_URL (the .env.example default matches docker compose)
+npm run migrate         # create the tables
+npm run seed            # load sample products, processes, machines, inventory
+npm run dev             # starts on http://localhost:5001
 ```
 
-**Frontend**
+Check it: `curl http://localhost:5001/api/health` → `{"status":"true"}`
+
+**3. Frontend**
 
 ```bash
 cd frontend
 npm install
-npm run dev            # starts on PORT 3000 by default
+npm run dev             # starts on http://localhost:5173
 ```
+
+Open http://localhost:5173, log in with any credentials, and create a work order.
 
 ### Environment Variables
 
@@ -131,19 +150,18 @@ npm run dev            # starts on PORT 3000 by default
 
 ---
 
-## Seeding Test Data (Temporary Testing Purpose)
-
-FlowForge ships with two utility endpoints for bootstrapping machine and inventory records against your existing product and process data.
+## Seeding Test Data
 
 ```bash
-# Adds 2–3 machines per process if none exist
-GET http://localhost:5001/api/seed/machines
-
-# Adds random inventory (30–100) per product-process pair if none exist
-GET http://localhost:5001/api/seed/inventory
+cd backend
+npm run seed
 ```
 
-Run these once after initial setup to have a working dataset ready to go.
+This loads two products, each with an ordered process chain (e.g. Cutting →
+Plating → Chaffing → Quality Check), machines per process with their mappings,
+and starting inventory. It is idempotent — it does nothing if products already
+exist. There is no API to create products/processes/machines yet (Phase 1), so
+`npm run seed` is currently the way to get a working dataset.
 
 ---
 

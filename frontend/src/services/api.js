@@ -35,6 +35,15 @@ export const api = {
     },
   },
 
+  inventory: {
+    get: async (productId, processId) => {
+      const response = await fetch(
+        `${API_BASE_URL}/api/inventory/product/${productId}/process/${processId}`
+      );
+      return handleResponse(response);
+    },
+  },
+
   workOrders: {
     getAll: async () => {
       const response = await fetch(`${API_BASE_URL}/api/work-orders`);
@@ -65,13 +74,6 @@ export const api = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(orderData),
         }
-      );
-      return handleResponse(response);
-    },
-
-    getProgress: async (orderId) => {
-      const response = await fetch(
-        `${API_BASE_URL}/api/work-orders/${orderId}/progress`
       );
       return handleResponse(response);
     },

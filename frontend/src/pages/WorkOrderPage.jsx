@@ -38,9 +38,6 @@ export const WorkOrderPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const [orderProgress, setOrderProgress] = useState([]);
-  const [loadingOrder, setLoadingOrder] = useState(false);
-
   useEffect(() => {
     if (isEditMode && currentOrderId) {
       loadOrderById(currentOrderId);
