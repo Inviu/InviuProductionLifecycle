@@ -7,6 +7,27 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
+// Application users. role is 'manager' or 'operator'.
+export const usersTable = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: varchar("username", { length: 255 }).notNull().unique(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull(), // manager | operator
+  displayName: varchar("display_name", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Append-only audit trail: who did what, when.
+export const auditLogTable = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"), // nullable: system actions
+  action: varchar("action", { length: 100 }).notNull(),
+  entity: varchar("entity", { length: 50 }),
+  entityId: integer("entity_id"),
+  details: text("details"), // JSON string
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -28,6 +49,8 @@ export const productProcessMappingTable = pgTable("product_process_mapping", {
   processId: integer("process_id")
     .notNull()
     .references(() => processesTable.id, { onDelete: "cascade" }),
+  // Position of this process in the product's chain (1-based). Lower runs first.
+  sequence: integer("sequence").notNull().default(1),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

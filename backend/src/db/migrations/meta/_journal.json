@@ -64,6 +64,20 @@
       "when": 1769782839925,
       "tag": "0008_graceful_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793450463793,
+      "tag": "0009_auth_and_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793450595613,
+      "tag": "0010_audit_log",
+      "breakpoints": true
     }
   ]
 }

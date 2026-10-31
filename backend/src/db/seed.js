@@ -7,6 +7,7 @@
 
 import { db, pool } from "../config/db.js";
 import {
+  usersTable,
   productsTable,
   processesTable,
   machinesTable,
@@ -14,6 +15,7 @@ import {
   machineProcessMappingTable,
   productProcessInventoryTable,
 } from "./schema.js";
+import { hashPassword } from "../services/auth.service.js";
 
 // product name -> ordered list of process names
 const PRODUCTS = {
@@ -25,10 +27,30 @@ const PRODUCTS = {
 const MACHINES_PER_PROCESS = 2;
 const INVENTORY_PER_PAIR = 100;
 
+async function seedUsers() {
+  const existing = await db.select().from(usersTable);
+  if (existing.length > 0) return;
+  const users = [
+    { username: "manager", password: "manager123", role: "manager", displayName: "Shop Manager" },
+    { username: "operator", password: "operator123", role: "operator", displayName: "Floor Operator" },
+  ];
+  for (const u of users) {
+    await db.insert(usersTable).values({
+      username: u.username,
+      passwordHash: await hashPassword(u.password),
+      role: u.role,
+      displayName: u.displayName,
+    });
+  }
+  console.log("Seeded users: manager/manager123, operator/operator123");
+}
+
 async function seed() {
+  await seedUsers();
+
   const existing = await db.select().from(productsTable);
   if (existing.length > 0) {
-    console.log("Products already exist — skipping seed (it is idempotent).");
+    console.log("Products already exist — skipping product seed (it is idempotent).");
     return;
   }
 
@@ -64,16 +86,19 @@ async function seed() {
       .values({ name: productName, description: `${productName} production line` })
       .returning();
 
+    let seq = 1;
     for (const pName of processNames) {
       await db.insert(productProcessMappingTable).values({
         productId: product.id,
         processId: processId[pName],
+        sequence: seq,
       });
       await db.insert(productProcessInventoryTable).values({
         productId: product.id,
         processId: processId[pName],
         availableQuantity: INVENTORY_PER_PAIR,
       });
+      seq += 1;
     }
   }
 
