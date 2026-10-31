@@ -8,6 +8,7 @@ import {
   machineProcessMappingTable,
   productProcessMappingTable,
   productProcessInventoryTable,
+  ordersTable,
 } from "../db/schema.js";
 import { asyncHandler, validateBody, AppError } from "../middleware/validate.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -64,9 +65,19 @@ router.delete(
   "/products/:id",
   ...manager,
   asyncHandler(async (req, res) => {
+    const productId = Number(req.params.id);
+    // Guard against deleting a product that work orders still reference.
+    const [used] = await db
+      .select({ id: ordersTable.id })
+      .from(ordersTable)
+      .where(eq(ordersTable.productId, productId))
+      .limit(1);
+    if (used) {
+      throw new AppError("Cannot delete a product that has work orders", 409);
+    }
     const [row] = await db
       .delete(productsTable)
-      .where(eq(productsTable.id, Number(req.params.id)))
+      .where(eq(productsTable.id, productId))
       .returning();
     if (!row) throw new AppError("Product not found", 404);
     res.json(row);
@@ -99,6 +110,15 @@ router.put(
   validateBody(productChainSchema),
   asyncHandler(async (req, res) => {
     const productId = Number(req.params.id);
+    // Validate every referenced process exists before touching the chain.
+    const requestedIds = [...new Set(req.body.processes.map((p) => p.processId))];
+    const found = await db
+      .select({ id: processesTable.id })
+      .from(processesTable)
+      .where(inArray(processesTable.id, requestedIds));
+    if (found.length !== requestedIds.length) {
+      throw new AppError("One or more processes do not exist", 400);
+    }
     await db.transaction(async (tx) => {
       await tx
         .delete(productProcessMappingTable)

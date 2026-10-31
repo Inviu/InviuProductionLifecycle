@@ -8,6 +8,7 @@ import {
   productProcessInventoryTable,
   processesTable,
   machinesTable,
+  machineProcessMappingTable,
   productsTable,
 } from "../db/schema.js";
 import { AppError } from "../middleware/validate.js";
@@ -135,15 +136,20 @@ export async function assignMachines(orderId, processId, machines, user) {
       );
     }
 
-    // Validate all referenced machines are valid for this process.
-    const machineIds = machines.map((m) => m.machineId);
+    // Validate all referenced machines are mapped to THIS process.
+    const machineIds = [...new Set(machines.map((m) => m.machineId))];
     if (machineIds.length) {
       const valid = await tx
-        .select({ id: machinesTable.id })
-        .from(machinesTable)
-        .where(inArray(machinesTable.id, machineIds));
-      if (valid.length !== new Set(machineIds).size) {
-        throw new AppError("One or more machines do not exist", 400);
+        .select({ machineId: machineProcessMappingTable.machineId })
+        .from(machineProcessMappingTable)
+        .where(
+          and(
+            eq(machineProcessMappingTable.processId, processId),
+            inArray(machineProcessMappingTable.machineId, machineIds)
+          )
+        );
+      if (valid.length !== machineIds.length) {
+        throw new AppError("One or more machines are not valid for this process", 400);
       }
     }
 

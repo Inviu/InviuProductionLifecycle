@@ -2,6 +2,8 @@ import { z } from "zod";
 
 const id = z.coerce.number().int().positive();
 const qty = z.coerce.number().int().min(0);
+// A due date: an ISO datetime, an empty string, or null — all optional.
+const dueDate = z.union([z.string().datetime(), z.literal(""), z.null()]).optional();
 
 export const loginSchema = z.object({
   username: z.string().min(1),
@@ -48,12 +50,12 @@ export const createWorkOrderSchema = z.object({
   customerName: z.string().min(1).max(255),
   productId: id,
   quantity: z.coerce.number().int().positive(),
-  dueDate: z.string().datetime().nullish().or(z.string().length(0)).nullable().optional(),
+  dueDate,
 });
 
 export const updateWorkOrderSchema = z.object({
   customerName: z.string().min(1).max(255).optional(),
-  dueDate: z.string().nullable().optional(),
+  dueDate,
 });
 
 export const assignSchema = z.object({
