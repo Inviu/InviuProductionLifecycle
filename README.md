@@ -110,7 +110,18 @@ npm install
 npm run dev             # starts on http://localhost:5173
 ```
 
-Open http://localhost:5173, log in with any credentials, and create a work order.
+Open http://localhost:5173 and log in with a seeded account (below).
+
+### Accounts & roles
+
+`npm run seed` creates two users:
+
+| Role | Login | Can do |
+|------|-------|--------|
+| Manager | `manager` / `manager123` | Everything: create orders, assign machines, master data, dashboard, audit |
+| Operator | `operator` / `operator123` | Record completions from the mobile shop-floor queue |
+
+Operators land on the mobile queue; managers land on the orders dashboard.
 
 ### Environment Variables
 
@@ -118,35 +129,74 @@ Open http://localhost:5173, log in with any credentials, and create a work order
 |----------|---------|-------------|
 | `PORT` | `5001` | Server listen port |
 | `DATABASE_URL` | — | PostgreSQL connection string |
-| `NODE_ENV` | `development` | Environment mode |
+| `NODE_ENV` | `development` | Environment mode (`production` requires a real `JWT_SECRET`) |
+| `JWT_SECRET` | `dev-secret-change-in-prod` | Secret used to sign JWTs — set a strong value in production |
+| `JWT_EXPIRES_IN` | `12h` | Token lifetime |
 
 ---
 
 ## API Reference
 
-### Work Orders
+All `/api` routes except `/api/health*` and `/api/auth/login` require a
+`Authorization: Bearer <token>` header. Writes to master data require the
+manager role; completions are allowed for managers and operators.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/work-orders` | Fetch all work orders |
-| `POST` | `/api/work-orders` | Create a new work order |
-| `GET` | `/api/work-orders/:id` | Fetch a single work order with full process & machine details |
-| `PUT` | `/api/work-orders/:id` | Update order — handles machine reassignment and inventory completion |
+### Auth
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/login` | — | Log in → `{ token, user }` |
+| `GET` | `/api/auth/me` | any | Current user |
+| `GET` / `POST` | `/api/auth/users` | manager | List / create users |
 
-### Products & Processes
+### Work Orders (server-driven)
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/work-orders` | any | List orders (with product name + status) |
+| `GET` | `/api/work-orders/:id` | any | Order detail with processes & machines |
+| `POST` | `/api/work-orders` | manager | Create — server derives the process chain |
+| `PUT` | `/api/work-orders/:id` | manager | Update header (customer, due date) |
+| `POST` | `/api/work-orders/:id/processes/:processId/assign` | manager | Set machine assignments |
+| `POST` | `/api/work-orders/:id/processes/:processId/complete` | floor | Complete units (consumes inventory, cascades) |
+| `DELETE` | `/api/work-orders/:id` | manager | Delete |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/getAllProducts` | List all products |
-| `POST` | `/api/createProduct` | Create a product |
-| `GET` | `/api/getprocess/:productId` | Fetch processes linked to a product |
-| `GET` | `/api/getMachines/:processId` | Fetch machines available for a process |
+### Master data
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| `GET/POST/PUT/DELETE` | `/api/products` `/api/products/:id` | manager (writes) | Products CRUD |
+| `GET/PUT` | `/api/products/:id/processes` | manager (write) | Read/replace a product's ordered process chain |
+| `GET/POST/PUT/DELETE` | `/api/processes` | manager (writes) | Processes CRUD |
+| `GET/POST/PUT/DELETE` | `/api/machines` (`?processId=`) | manager (writes) | Machines CRUD + per-process filter |
+| `GET/PUT` | `/api/inventory/product/:p/process/:pr` | manager (write) | Read/set inventory |
+| `POST` | `/api/inventory/product/:p/process/:pr/adjust` | manager | Adjust by delta |
 
-### Inventory
+### Operator, reports, audit, health
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| `GET` | `/api/operator/queue` (`?machineId=`) | floor | Actionable shop-floor queue |
+| `GET` | `/api/reports/summary` | manager | Order/unit summary for the dashboard |
+| `GET` | `/api/audit` | manager | Recent audit entries |
+| `GET` | `/api/health`, `/api/health/db` | — | Liveness / DB readiness |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/inventory/product/:productId/process/:processId` | Current inventory level for a product at a given process stage |
+---
+
+## Deployment
+
+Config is included; deploying needs your own accounts.
+
+- **Render (one blueprint)**: `render.yaml` provisions Postgres + the backend
+  web service (runs migrations on start) + the static frontend. In Render:
+  New → Blueprint → point at this repo. After the first deploy, set the
+  frontend's `VITE_API_URL` to the backend URL (and optionally the backend's
+  `API_URL` to its own URL to keep the free tier warm).
+- **Docker**: `backend/Dockerfile` builds and runs the API (migrate + start).
+- **Vercel (frontend)**: `frontend/vercel.json` (Vite + SPA rewrites); set
+  `VITE_API_URL` to your backend.
+- **Database**: Neon or any managed Postgres — set `DATABASE_URL`. The driver
+  auto-enables SSL for `neon.tech`/`sslmode=require`.
+
+The operator view is an installable PWA — on a phone, "Add to Home Screen"
+gives a full-screen app whose shell loads offline; completions recorded offline
+sync automatically when the connection returns.
 
 ---
 
@@ -159,9 +209,9 @@ npm run seed
 
 This loads two products, each with an ordered process chain (e.g. Cutting →
 Plating → Chaffing → Quality Check), machines per process with their mappings,
-and starting inventory. It is idempotent — it does nothing if products already
-exist. There is no API to create products/processes/machines yet (Phase 1), so
-`npm run seed` is currently the way to get a working dataset.
+and starting inventory, plus the two demo users. It is idempotent — it skips
+seeding if users/products already exist. (Managers can also create and edit
+products, processes, machines and inventory through the API / UI.)
 
 ---
 

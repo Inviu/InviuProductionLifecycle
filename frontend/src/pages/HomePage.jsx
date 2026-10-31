@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { api } from "../services/api";
 import { Plus, LogOut, Filter, X, Loader } from "lucide-react";
 
 export const HomePage = () => {
-  const { workOrders, navigateTo, logout, loading, error, loadWorkOrders } =
+  const { user, workOrders, navigateTo, logout, loading, error, loadWorkOrders } =
     useApp();
   const [filters, setFilters] = useState({
     dateRange: undefined,
@@ -12,10 +13,12 @@ export const HomePage = () => {
     status: "",
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   useEffect(() => {
     loadWorkOrders();
-    console.log(workOrders, "www");
+    api.reports.summary().then(setSummary).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredWorkOrders = useMemo(() => {
@@ -129,6 +132,19 @@ export const HomePage = () => {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
             {error}
+          </div>
+        )}
+
+        {summary && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <SummaryCard label="Total Orders" value={summary.totalOrders} tone="slate" />
+            <SummaryCard label="In Progress" value={summary.ordersByStatus["In Progress"]} tone="blue" />
+            <SummaryCard label="Completed" value={summary.ordersByStatus["Completed"]} tone="green" />
+            <SummaryCard
+              label="Units Done"
+              value={`${summary.units.completed}/${summary.units.planned}`}
+              tone="slate"
+            />
           </div>
         )}
 
@@ -319,3 +335,16 @@ export const HomePage = () => {
     </div>
   );
 };
+
+const toneMap = {
+  slate: "text-slate-900",
+  blue: "text-blue-600",
+  green: "text-green-600",
+};
+
+const SummaryCard = ({ label, value, tone = "slate" }) => (
+  <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</div>
+    <div className={`text-2xl font-bold mt-1 ${toneMap[tone]}`}>{value}</div>
+  </div>
+);

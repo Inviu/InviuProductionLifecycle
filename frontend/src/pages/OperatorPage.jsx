@@ -1,7 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
-import { LogOut, RefreshCw, Loader, CheckCircle, PackageCheck } from "lucide-react";
+import { submitCompletion, retryFailed, dismissFailed } from "../services/offlineQueue";
+import { useOfflineQueue } from "../hooks/useOfflineQueue";
+import {
+  LogOut,
+  RefreshCw,
+  Loader,
+  CheckCircle,
+  PackageCheck,
+  WifiOff,
+  UploadCloud,
+  AlertTriangle,
+} from "lucide-react";
 
 export const OperatorPage = () => {
   const { user, logout } = useApp();
@@ -10,6 +21,13 @@ export const OperatorPage = () => {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [inputs, setInputs] = useState({});
+  const { online, pending, failed, flushing } = useOfflineQueue();
+
+  // When queued actions finish syncing, refresh the queue from the server.
+  useEffect(() => {
+    if (online && !flushing && pending.length === 0) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, flushing, pending.length]);
 
   const load = useCallback(async () => {
     try {
@@ -33,9 +51,17 @@ export const OperatorPage = () => {
     try {
       setBusyId(item.orderProcessId);
       setError(null);
-      await api.workOrders.complete(item.orderId, item.processId, qty);
+      const result = await submitCompletion({
+        orderId: item.orderId,
+        processId: item.processId,
+        quantity: qty,
+        label: `${item.processName} ×${qty} (WO-${item.orderId})`,
+      });
       setInputs((p) => ({ ...p, [item.orderProcessId]: "" }));
-      await load();
+      if (result.status === "applied") {
+        await load();
+      }
+      // If queued (offline), the banner reflects it; UI refreshes on sync.
     } catch (e) {
       setError(e.message);
     } finally {
@@ -69,6 +95,52 @@ export const OperatorPage = () => {
           </div>
         </div>
       </header>
+
+      {(!online || pending.length > 0 || failed.length > 0) && (
+        <div className="max-w-2xl mx-auto px-4 pt-4 space-y-2">
+          {!online && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg text-sm">
+              <WifiOff className="w-4 h-4" />
+              Offline — completions are saved and will sync automatically.
+            </div>
+          )}
+          {online && pending.length > 0 && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-lg text-sm">
+              <UploadCloud className={`w-4 h-4 ${flushing ? "animate-pulse" : ""}`} />
+              Syncing {pending.length} queued completion{pending.length > 1 ? "s" : ""}…
+            </div>
+          )}
+          {failed.length > 0 && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded-lg text-sm">
+              <div className="flex items-center gap-2 font-medium">
+                <AlertTriangle className="w-4 h-4" />
+                {failed.length} completion{failed.length > 1 ? "s" : ""} couldn’t be applied
+              </div>
+              <ul className="mt-1 ml-6 list-disc">
+                {failed.map((f) => (
+                  <li key={f.action.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      {f.action.label}: {f.error}
+                    </span>
+                    <button
+                      onClick={() => dismissFailed(f.action.id)}
+                      className="text-xs underline shrink-0"
+                    >
+                      dismiss
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={retryFailed}
+                className="mt-2 text-xs font-semibold underline"
+              >
+                Retry all
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <main className="max-w-2xl mx-auto px-4 py-6">
         {error && (

@@ -21,7 +21,7 @@ working system, and the mobile app comes only after the backend is trustworthy.
   and unused state; removed unused deps (`mysql2`, `@supabase/supabase-js`);
   fixed stale Vite proxy port.
 
-## Phase 1 — Trustworthy backend (foundation for any app)
+## Phase 1 — Trustworthy backend ✅
 
 - **Real authentication** with roles: **Manager** (create orders, assign
   machines, master data) and **Operator** (record completions).
@@ -34,30 +34,42 @@ working system, and the mobile app comes only after the backend is trustworthy.
   failure (now possible with the `pg` driver).
 - Input validation on every endpoint.
 
-## Phase 2 — Split users by device
+## Phase 2 — Split users by device ✅
 
 | User | Device | Does |
 |---|---|---|
-| Manager / planner | Web (desktop) | Create orders, assign machines, dashboards, master data |
-| Floor operator | Phone / tablet | See their machine's queue, record completed units, flag issues |
+| Manager / planner | Web (desktop) | Create orders, assign machines, dashboard, master data |
+| Floor operator | Phone / tablet | See the shop-floor queue, record completed units |
 
-- Operator-focused API views (my-machine queue, record completion).
+- Operator queue API (`/api/operator/queue`) and a role-based landing: operators
+  go straight to the mobile queue, managers to the orders dashboard.
 
-## Phase 3 — Operator app (PWA first)
+## Phase 3 — Operator app (PWA first) ✅
 
-- Mobile-first operator screens in the same React codebase.
-- Installable PWA: home-screen icon, full-screen, Android + iOS.
-- Optional QR codes on machines → scan opens that machine's queue.
-- Go native (React Native/Expo) only if PWA falls short on offline use,
-  push notifications, or hardware access.
+- Mobile-first operator screens (`OperatorPage`) in the same React codebase.
+- Installable PWA: manifest + icons + service worker (vite-plugin-pwa);
+  home-screen icon, full-screen, app shell cached for offline load.
+- QR codes on machines → scan opens that machine's queue: **deferred** (optional;
+  the queue already supports a `?machineId=` filter the scan would use).
+- Native (React Native/Expo): not needed; the PWA covers offline + install.
 
-## Phase 4 — Production polish & shop-floor hardening
+## Phase 4 — Production polish & shop-floor hardening ✅ (code & config)
 
-Done once the full package is correct and fail-safe.
+- **Offline resilience**: operator completions queue in localStorage during
+  Wi-Fi drops and sync automatically on reconnect; actions the server can no
+  longer apply surface as reviewable "failed" items (conflict handling).
+- **Concurrency-safe**: completions run in a transaction with row locks, so
+  parallel completions can't oversell inventory.
+- Security: `helmet` headers, login rate-limiting; JWT secret required in prod.
+- Audit log: who did what, when (`/api/audit`).
+- Reports: production summary endpoint + manager dashboard (`/api/reports/summary`).
+- Health checks: `/api/health` (liveness) and `/api/health/db` (DB readiness).
+- Request logging via `morgan`.
+- **Deploy config provided** (actual deploy needs your accounts): `render.yaml`
+  blueprint (Postgres + backend + static frontend), backend `Dockerfile`,
+  frontend `vercel.json`. Works with Neon or any managed Postgres.
 
-- **Offline resilience**: operators keep recording during Wi-Fi drops; actions
-  queue locally and sync on reconnect, with conflict handling.
-- Deploy: frontend (Vercel), backend (Render/Railway), DB (Neon/managed PG).
-- Audit log: who completed what, when, on which machine.
-- Reports & dashboards; alerting on stalled orders.
-- Health checks, structured logging, error monitoring.
+### Still open (future)
+- QR machine scanning; push notifications for new/urgent work.
+- Alerting on stalled orders; richer reporting/throughput charts.
+- Error monitoring (e.g. Sentry) wired to the central error handler.

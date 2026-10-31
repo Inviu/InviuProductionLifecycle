@@ -99,4 +99,12 @@ export const api = {
   operator: {
     queue: () => request("/api/operator/queue"),
   },
+
+  reports: {
+    summary: () => request("/api/reports/summary"),
+  },
+
+  audit: {
+    list: (limit = 100) => request(`/api/audit?limit=${limit}`),
+  },
 };
