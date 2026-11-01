@@ -194,6 +194,13 @@ Config is included; deploying needs your own accounts.
 - **Database**: Neon or any managed Postgres — set `DATABASE_URL`. The driver
   auto-enables SSL for `neon.tech`/`sslmode=require`.
 
+> **Neon is already provisioned** for this project (Neon project
+> **InviuProdCycle**): schema migrated, demo data seeded, and drizzle's
+> migration journal pre-populated so `npm run migrate` on deploy is a no-op.
+> Copy that project's connection string from the Neon console (Connect) into
+> `DATABASE_URL`. Rotate the role password and set a strong `JWT_SECRET` before
+> going to production.
+
 The operator view is an installable PWA — on a phone, "Add to Home Screen"
 gives a full-screen app whose shell loads offline; completions recorded offline
 sync automatically when the connection returns.
