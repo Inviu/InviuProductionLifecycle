@@ -18,7 +18,11 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors());
+  // Restrict CORS to configured origins in production; allow all when unset (dev).
+  const corsOrigins = ENV.CORS_ORIGIN
+    ? ENV.CORS_ORIGIN.split(",").map((o) => o.trim())
+    : true;
+  app.use(cors({ origin: corsOrigins }));
   app.use(express.json());
   if (ENV.NODE_ENV !== "test") app.use(morgan("tiny"));
 

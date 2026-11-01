@@ -7,6 +7,8 @@ export const ENV = {
   JWT_SECRET: process.env.JWT_SECRET || "dev-secret-change-in-prod",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "12h",
   API_URL: process.env.API_URL,
+  // Comma-separated list of allowed browser origins. Unset = allow all (dev).
+  CORS_ORIGIN: process.env.CORS_ORIGIN,
 };
 
 // Fail fast on missing critical config (except in test, which sets its own).
