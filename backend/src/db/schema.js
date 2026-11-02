@@ -86,9 +86,10 @@ export const productionEntryTable = pgTable("production_entry", {
   processId: integer("process_id")
     .notNull()
     .references(() => processesTable.id, { onDelete: "cascade" }),
-  machineId: integer("machine_id")
-    .notNull()
-    .references(() => machinesTable.id, { onDelete: "cascade" }),
+  // Nullable: some processes have no machine; the app logs an entry with no machine in that case.
+  machineId: integer("machine_id").references(() => machinesTable.id, {
+    onDelete: "cascade",
+  }),
   workerName: varchar("worker_name", { length: 255 }).notNull(),
   shiftStartTime: timestamp("shift_start_time").notNull(),
   shiftEndTime: timestamp("shift_end_time").notNull(),

@@ -1,1 +1,0 @@
-ALTER TABLE "production_entry" ADD COLUMN "production_issue_reason" text;

@@ -30,16 +30,15 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    // Simulate network delay
-    setTimeout(() => {
-      if (login(username, password)) {
-        setUsername('');
-        setPassword('');
-      } else {
-        Alert.alert('Login Failed', 'Invalid credentials. Try Admin/Admin');
-      }
-      setIsLoading(false);
-    }, 500);
+    const result = await login(username.trim(), password);
+    setIsLoading(false);
+
+    if (result.ok) {
+      setUsername('');
+      setPassword('');
+    } else {
+      Alert.alert('Login Failed', result.error || 'Invalid username or password');
+    }
   };
 
   return (
@@ -89,7 +88,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={styles.hint}>
-            Demo credentials: Admin / Admin
+            Demo: operator / operator123  (or manager / manager123)
           </Text>
 
           <Button

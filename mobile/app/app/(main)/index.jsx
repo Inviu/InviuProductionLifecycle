@@ -1,5 +1,6 @@
 import { ListItem } from '@/components/ListItem';
 import { useApp } from '@/context/AppContext';
+import { api } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, ActivityIndicator, Text } from 'react-native';
@@ -18,11 +19,7 @@ export default function ProductSelectionScreen() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://invuie-api.onrender.com/api/getAllProducts');
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
-      }
-      const data = await response.json();
+      const data = await api.products.list();
       setProducts(data);
       setError(null);
     } catch (err) {

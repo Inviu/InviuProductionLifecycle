@@ -104,6 +104,14 @@ export const api = {
     summary: () => request("/api/reports/summary"),
   },
 
+  production: {
+    // Shift production entries logged from the mobile app.
+    list: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/api/production-entries${qs ? `?${qs}` : ""}`);
+    },
+  },
+
   audit: {
     list: (limit = 100) => request(`/api/audit?limit=${limit}`),
   },

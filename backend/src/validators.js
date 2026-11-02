@@ -67,3 +67,25 @@ export const assignSchema = z.object({
 export const completeSchema = z.object({
   quantity: z.coerce.number().int().positive(),
 });
+
+// A clock time in 24h HH:MM form.
+const timeHHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Time must be in HH:MM (24h) format");
+
+// A shift production entry logged from the shop floor (mobile app).
+export const productionEntrySchema = z.object({
+  productId: id,
+  processId: id,
+  // Optional: some processes have no machine.
+  machineId: z.union([id, z.null()]).optional(),
+  // Optional: falls back to the logged-in user when omitted.
+  workerName: z.string().min(1).max(255).optional(),
+  shiftStartTime: timeHHMM,
+  shiftEndTime: timeHHMM,
+  unitsProduced: z.coerce.number().int().positive(),
+  // Optional entry date (ISO or YYYY-MM-DD); defaults to today.
+  date: z.union([z.string(), z.null()]).optional(),
+  // One reason, a list of reasons, or none.
+  productionIssueReason: z
+    .union([z.string(), z.array(z.string()), z.null()])
+    .optional(),
+});

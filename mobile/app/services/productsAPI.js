@@ -1,19 +1,8 @@
-const BASE_URL = 'https://invuie-api.onrender.com/api/getAllProducts';
+// Kept for backwards compatibility. New code should import { api } from './api'.
+import { api } from "./api";
 
 export const productsAPI = {
-    fetchAllProducts: async () => {
-        try {
-            const response = await fetch(BASE_URL);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            return data;
-        }
-        catch (error) {
-            console.error("Error fetching products:", error);
-            throw error;
-        }       
-    }
+  fetchAllProducts: () => api.products.list(),
 };
 
+export default productsAPI;

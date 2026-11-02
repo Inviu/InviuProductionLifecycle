@@ -1,5 +1,6 @@
 import { ListItem } from '@/components/ListItem';
 import { useApp } from '@/context/AppContext';
+import { api } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
@@ -20,13 +21,7 @@ export default function ProcessSelectionScreen() {
   const fetchProcesses = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `https://invuie-api.onrender.com/api/getprocess/${appState.selectedProduct.id}`
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch processes');
-      }
-      const data = await response.json();
+      const data = await api.processes.forProduct(appState.selectedProduct.id);
       setProcesses(data);
       setError(null);
     } catch (err) {

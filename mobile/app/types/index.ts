@@ -32,7 +32,8 @@ export interface ProductionEntry {
 export interface AuthState {
   isLoggedIn: boolean;
   user?: {
-    role: 'admin' | 'worker';
+    // Real backend roles: 'manager' | 'operator' (kept as string for flexibility).
+    role: string;
     name: string;
   };
 }

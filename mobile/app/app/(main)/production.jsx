@@ -3,6 +3,7 @@ import { ReasonSelector } from '@/components/ReasonSelector';
 import { TextInputField } from '@/components/TextInputField';
 import { TimePicker } from '@/components/TimePicker';
 import { useApp } from '@/context/AppContext';
+import { api } from '@/services/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useCallback, useEffect } from 'react';
@@ -125,28 +126,17 @@ export default function ProductionEntryScreen() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('https://invuie-api.onrender.com/api/createProductionEntry', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: appState.selectedProduct.id,
-          processId: appState.selectedProcess.id,
-          machineId: appState.selectedMachine?.id || null,
-          workerName: workerName.trim(),
-          shiftStartTime: startTime,
-          shiftEndTime: endTime,
-          unitsProduced: Number(unitsProduced),
-          productionIssueReason: reasons.length > 0 ? reasons : null,
-        }),
+      const data = await api.production.create({
+        productId: appState.selectedProduct.id,
+        processId: appState.selectedProcess.id,
+        machineId: appState.selectedMachine?.id || null,
+        workerName: workerName.trim(),
+        shiftStartTime: startTime,
+        shiftEndTime: endTime,
+        unitsProduced: Number(unitsProduced),
+        productionIssueReason: reasons.length > 0 ? reasons : null,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create production entry');
-      }
-
-      const data = await response.json();
       addProductionEntry(data);
       setIsLoading(false);
 

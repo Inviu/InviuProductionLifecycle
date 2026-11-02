@@ -1,0 +1,1 @@
+ALTER TABLE "production_entry" ALTER COLUMN "machine_id" DROP NOT NULL;

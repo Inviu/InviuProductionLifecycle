@@ -1,5 +1,6 @@
 import { ListItem } from '@/components/ListItem';
 import { useApp } from '@/context/AppContext';
+import { api } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
@@ -20,15 +21,9 @@ export default function MachineSelectionScreen() {
   const fetchMachines = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        `https://invuie-api.onrender.com/api/getMachines/${appState.selectedProcess.id}`
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch machines');
-      }
-      const data = await response.json();
-      
-      // Check if machines array is empty or not provided
+      const data = await api.machines.forProcess(appState.selectedProcess.id);
+
+      // Backend returns a plain array; tolerate a {machines:[]} shape too.
       const machinesList = Array.isArray(data) ? data : (data.machines || []);
       
       if (machinesList.length === 0) {

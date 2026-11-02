@@ -3,6 +3,7 @@ import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
 import { WorkOrderPage } from './pages/WorkOrderPage';
 import { OperatorPage } from './pages/OperatorPage';
+import { ProductionLogPage } from './pages/ProductionLogPage';
 import { Loader } from 'lucide-react';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
       {currentPage === 'home' && <HomePage />}
       {currentPage === 'workorder' && <WorkOrderPage />}
       {currentPage === 'operator' && <OperatorPage />}
+      {currentPage === 'production' && <ProductionLogPage />}
     </>
   );
 }
