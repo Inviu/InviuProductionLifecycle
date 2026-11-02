@@ -34,7 +34,14 @@ export const ProductionLogPage = () => {
   const fmtTime = (iso) => {
     if (!iso) return "-";
     try {
-      return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      // Shift times are stored as the naive clock value the operator entered
+      // (treated as UTC), so display them in UTC to echo exactly that value
+      // rather than shifting them into the viewer's timezone.
+      return new Date(iso).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC",
+      });
     } catch {
       return "-";
     }
