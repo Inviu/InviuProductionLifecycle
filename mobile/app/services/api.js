@@ -140,10 +140,16 @@ export const api = {
     queue: () => request("/api/operator/queue", { cacheKey: "operator_queue" }),
   },
   workOrders: {
-    complete: (orderId, processId, quantity) =>
+    // Completing a step optionally carries the machine used and any issue
+    // reasons; the backend records a production entry from it.
+    complete: (orderId, processId, quantity, extra = {}) =>
       request(`/api/work-orders/${orderId}/processes/${processId}/complete`, {
         method: "POST",
-        body: { quantity },
+        body: {
+          quantity,
+          machineId: extra.machineId ?? null,
+          productionIssueReason: extra.productionIssueReason ?? null,
+        },
       }),
   },
 };

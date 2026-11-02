@@ -1,13 +1,16 @@
-// Offline write-queue for production entries.
+// Offline queue for work-order step completions.
 //
-// When a submit fails because the device is offline, the entry is stored here
-// and retried automatically when connectivity returns, so a shift log is never
-// lost on a Wi-Fi blip. A tiny pub/sub lets the UI show a live pending count.
+// Completions touch shared inventory + step-locking, so they can't be a silent
+// offline guarantee. The queue holds completions made while offline and retries
+// them on reconnect; any that the server can't apply (e.g. stock ran out, step
+// re-locked) move to a "failed" list that is surfaced to the operator to redo —
+// never silently dropped. A tiny pub/sub drives the live UI counts.
 
 import { getJSON, setJSON } from "./storage";
 import { api } from "./api";
 
-const QUEUE_KEY = "inviu_pending_entries";
+const PENDING_KEY = "inviu_pending_completions";
+const FAILED_KEY = "inviu_failed_completions";
 
 const listeners = new Set();
 function notify() {
@@ -15,7 +18,7 @@ function notify() {
     try {
       fn();
     } catch {
-      /* ignore listener errors */
+      /* ignore */
     }
   }
 }
@@ -25,53 +28,101 @@ export function subscribe(fn) {
 }
 
 export async function getPending() {
-  return getJSON(QUEUE_KEY, []);
+  return getJSON(PENDING_KEY, []);
+}
+export async function getFailed() {
+  return getJSON(FAILED_KEY, []);
 }
 
-export async function pendingCount() {
-  return (await getPending()).length;
-}
-
-export async function enqueue(payload) {
-  const queue = await getPending();
-  const item = {
+function makeItem(payload) {
+  return {
     localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     payload,
     queuedAt: new Date().toISOString(),
   };
-  queue.push(item);
-  await setJSON(QUEUE_KEY, queue);
-  notify();
-  return item;
 }
 
-// Attempt to send every queued entry. Network failures are kept for retry;
-// permanent server rejections (4xx) are dropped so they can't jam the queue.
-// Returns { synced, dropped, remaining }.
+async function addPending(payload) {
+  const q = await getPending();
+  q.push(makeItem(payload));
+  await setJSON(PENDING_KEY, q);
+  notify();
+}
+
+/**
+ * Submit a completion. Tries online first; if offline it's queued and retried
+ * later. A definite server rejection (4xx) is thrown so the screen can show it
+ * immediately. Returns { status: 'applied' | 'queued', detail? }.
+ */
+export async function submitCompletion(payload) {
+  try {
+    const detail = await api.workOrders.complete(
+      payload.orderId,
+      payload.processId,
+      payload.quantity,
+      { machineId: payload.machineId, productionIssueReason: payload.productionIssueReason }
+    );
+    return { status: "applied", detail };
+  } catch (err) {
+    if (err && (err.isNetworkError || err.status === 401)) {
+      await addPending(payload);
+      return { status: "queued" };
+    }
+    throw err; // 4xx / server rejection — surface to the caller now
+  }
+}
+
+// Retry the whole pending queue. Applied items are removed; still-offline items
+// stay; server-rejected items move to the failed list with their reason.
 export async function flushQueue() {
   const queue = await getPending();
-  if (!queue.length) return { synced: 0, dropped: 0, remaining: 0 };
+  if (!queue.length) return { synced: 0, failed: 0, remaining: 0 };
 
-  let synced = 0;
-  let dropped = 0;
   const stillPending = [];
+  const newlyFailed = [];
+  let synced = 0;
 
   for (const item of queue) {
     try {
-      await api.production.create(item.payload);
+      const p = item.payload;
+      await api.workOrders.complete(p.orderId, p.processId, p.quantity, {
+        machineId: p.machineId,
+        productionIssueReason: p.productionIssueReason,
+      });
       synced += 1;
     } catch (err) {
-      if (err && err.isNetworkError) {
-        stillPending.push(item); // still offline — keep for next time
-      } else if (err && err.status === 401) {
-        stillPending.push(item); // auth expired — keep; will retry after re-login
+      if (err && (err.isNetworkError || err.status === 401)) {
+        stillPending.push(item);
       } else {
-        dropped += 1; // server rejected it permanently; drop to avoid a jam
+        newlyFailed.push({ ...item, error: (err && err.message) || "Could not be applied" });
       }
     }
   }
 
-  await setJSON(QUEUE_KEY, stillPending);
+  await setJSON(PENDING_KEY, stillPending);
+  if (newlyFailed.length) {
+    const failed = await getFailed();
+    await setJSON(FAILED_KEY, [...failed, ...newlyFailed]);
+  }
   notify();
-  return { synced, dropped, remaining: stillPending.length };
+  return { synced, failed: newlyFailed.length, remaining: stillPending.length };
+}
+
+export async function retryFailed() {
+  const failed = await getFailed();
+  if (!failed.length) return;
+  const pending = await getPending();
+  await setJSON(
+    PENDING_KEY,
+    [...pending, ...failed.map(({ error, ...rest }) => rest)]
+  );
+  await setJSON(FAILED_KEY, []);
+  notify();
+  return flushQueue();
+}
+
+export async function dismissFailed(localId) {
+  const failed = await getFailed();
+  await setJSON(FAILED_KEY, failed.filter((f) => f.localId !== localId));
+  notify();
 }

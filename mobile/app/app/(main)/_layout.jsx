@@ -1,12 +1,11 @@
 import { useAuth } from '@/context/AuthContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Modal, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 export default function MainLayout() {
-  const router = useRouter();
   const { logout } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -36,46 +35,17 @@ export default function MainLayout() {
           headerTitleStyle: {
             fontWeight: '600',
           },
-          headerLeft: ({ tintColor }) => (
+          headerRight: ({ tintColor }) => (
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => setMenuVisible(true)}
               style={styles.headerButton}
             >
-              <MaterialIcons name="arrow-back" size={24} color={tintColor} />
+              <MaterialIcons name="menu" size={24} color={tintColor} />
             </Pressable>
-          ),
-          headerRight: ({ tintColor }) => (
-            <View style={styles.headerRightContainer}>
-              <Pressable
-                onPress={() => {
-                  router.replace('/');
-                }}
-                style={styles.headerButton}
-              >
-                <MaterialIcons name="home" size={24} color={tintColor} />
-              </Pressable>
-              <Pressable
-                onPress={() => setMenuVisible(true)}
-                style={styles.headerButton}
-              >
-                <MaterialIcons name="menu" size={24} color={tintColor} />
-              </Pressable>
-            </View>
           ),
         }}
       >
-        <Stack.Screen
-          name="index"
-          options={{
-            title: 'Home',
-            headerLeft: () => null,
-          }}
-        />
-        <Stack.Screen name="work-orders" options={{ title: 'Work Orders' }} />
-        <Stack.Screen name="products" options={{ title: 'Select Product' }} />
-        <Stack.Screen name="process" options={{ title: 'Select Process' }} />
-        <Stack.Screen name="machine" options={{ title: 'Select Machine' }} />
-        <Stack.Screen name="production" options={{ title: 'Production Entry' }} />
+        <Stack.Screen name="index" options={{ title: 'My Queue' }} />
       </Stack>
       </View>
 

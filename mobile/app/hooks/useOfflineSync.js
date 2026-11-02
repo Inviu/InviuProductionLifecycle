@@ -1,32 +1,54 @@
-// Watches connectivity and the offline queue, auto-syncing pending production
-// entries when the device comes back online, and exposing a live pending count.
+// Watches connectivity and the offline completion queue. Auto-syncs queued
+// work-order completions when the device comes back online, and exposes live
+// pending/failed counts for the banner.
 import { useCallback, useEffect, useRef, useState } from "react";
 import NetInfo from "@react-native-community/netinfo";
-import { getPending, flushQueue, subscribe } from "../services/offlineQueue";
+import {
+  getPending,
+  getFailed,
+  flushQueue,
+  retryFailed as retryFailedQueue,
+  dismissFailed as dismissFailedItem,
+  subscribe,
+} from "../services/offlineQueue";
 
 export function useOfflineSync() {
   const [pending, setPending] = useState(0);
+  const [failed, setFailed] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const syncingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     setPending((await getPending()).length);
+    setFailed(await getFailed());
   }, []);
 
   const syncNow = useCallback(async () => {
-    if (syncingRef.current) return { synced: 0, dropped: 0, remaining: 0 };
+    if (syncingRef.current) return;
     syncingRef.current = true;
     setSyncing(true);
     try {
-      const result = await flushQueue();
+      await flushQueue();
       await refresh();
-      return result;
     } finally {
       syncingRef.current = false;
       setSyncing(false);
     }
   }, [refresh]);
+
+  const retryFailed = useCallback(async () => {
+    await retryFailedQueue();
+    await refresh();
+  }, [refresh]);
+
+  const dismissFailed = useCallback(
+    async (localId) => {
+      await dismissFailedItem(localId);
+      await refresh();
+    },
+    [refresh]
+  );
 
   useEffect(() => {
     refresh();
@@ -42,5 +64,5 @@ export function useOfflineSync() {
     };
   }, [refresh, syncNow]);
 
-  return { pending, syncing, isOnline, syncNow };
+  return { pending, failed, syncing, isOnline, syncNow, retryFailed, dismissFailed };
 }

@@ -149,7 +149,9 @@ export const ProductionLogPage = () => {
                           {e.workerName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-slate-600 text-sm">
-                          {fmtTime(e.shiftStartTime)} – {fmtTime(e.shiftEndTime)}
+                          {e.shiftStartTime || e.shiftEndTime
+                            ? `${fmtTime(e.shiftStartTime)} – ${fmtTime(e.shiftEndTime)}`
+                            : "—"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-slate-900 font-semibold">
                           {e.unitsProduced}
