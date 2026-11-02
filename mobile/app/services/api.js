@@ -1,4 +1,4 @@
-// Central API client for the INVUI mobile app.
+// Central API client for the INVIU mobile app.
 //
 // Talks to the shared FlowForge web backend (same database the web dashboard
 // uses), so anything logged from the phone is visible on the web and vice
@@ -15,7 +15,7 @@ const RAW_BASE =
 
 export const BASE_URL = RAW_BASE.replace(/\/+$/, "");
 
-const TOKEN_KEY = "invui_token";
+const TOKEN_KEY = "inviu_token";
 
 let authToken = null;
 let onUnauthorized = null;

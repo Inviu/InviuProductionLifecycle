@@ -51,7 +51,7 @@ export default function LoginScreen() {
         <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>INVUI</Text>
+          <Text style={styles.title}>INVIU</Text>
 
         </View>
 

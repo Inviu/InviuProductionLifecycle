@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "invui_app",
-    "slug": "invui_app",
+    "name": "inviu_app",
+    "slug": "inviu_app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "invuiapp",
+    "scheme": "inviuapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.inviu.invui"
+      "bundleIdentifier": "com.inviu.inviu"
     },
     "android": {
-      "package": "com.inviu.invui",
+      "package": "com.inviu.inviu",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

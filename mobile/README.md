@@ -1,4 +1,4 @@
-# INVUI Mobile App
+# INVIU Mobile App
 
 The native (Expo / React Native) app operators use on the shop floor to log
 shift production entries.
@@ -12,8 +12,8 @@ phone is immediately visible on the web dashboard's **Production Log** page, and
 products / processes / machines are shared master data — there is now a single
 source of truth.
 
-The old standalone mobile API (`mobile/api`, formerly `amemelya/Invuie_API`) has
-been **retired**. Its endpoints were folded into the web backend
+The old standalone mobile API (`mobile/api`) has been **retired**. Its
+endpoints were folded into the web backend
 (`/api/production-entries`, plus the existing `/api/products`,
 `/api/products/:id/processes`, `/api/machines?processId=`). The old code remains
 in this repo's git history if ever needed.
@@ -53,7 +53,7 @@ submit. The entry is saved to the shared database.
 Expo Go + `npx expo start` is only for development. To put the app on a real
 phone/tablet that operators just tap open (no computer, no dev server), build a
 standalone binary with EAS Build. The project is already configured
-(`eas.json`, Android package `com.inviu.invui`, iOS bundle id `com.inviu.invui`).
+(`eas.json`, Android package `com.inviu.inviu`, iOS bundle id `com.inviu.inviu`).
 
 One-time, on your machine:
 
