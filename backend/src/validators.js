@@ -66,6 +66,11 @@ export const assignSchema = z.object({
 
 export const completeSchema = z.object({
   quantity: z.coerce.number().int().positive(),
+  // Optional production detail captured at completion time.
+  machineId: z.union([id, z.null()]).optional(),
+  productionIssueReason: z
+    .union([z.string(), z.array(z.string()), z.null()])
+    .optional(),
 });
 
 // A clock time in 24h HH:MM form.

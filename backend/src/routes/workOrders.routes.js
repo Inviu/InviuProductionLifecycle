@@ -87,7 +87,8 @@ router.post(
       Number(req.params.id),
       Number(req.params.processId),
       req.body.quantity,
-      req.user
+      req.user,
+      { machineId: req.body.machineId ?? null, productionIssueReason: req.body.productionIssueReason ?? null }
     );
     res.json(detail);
   })

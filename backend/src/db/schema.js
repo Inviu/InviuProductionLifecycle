@@ -91,8 +91,9 @@ export const productionEntryTable = pgTable("production_entry", {
     onDelete: "cascade",
   }),
   workerName: varchar("worker_name", { length: 255 }).notNull(),
-  shiftStartTime: timestamp("shift_start_time").notNull(),
-  shiftEndTime: timestamp("shift_end_time").notNull(),
+  // Nullable: entries generated from a work-order completion have no shift window.
+  shiftStartTime: timestamp("shift_start_time"),
+  shiftEndTime: timestamp("shift_end_time"),
   date: timestamp("date").defaultNow().notNull(),
   unitsProduced: integer("units_produced").notNull(),
   productionIssueReason: text("production_issue_reason"),

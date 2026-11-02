@@ -10,6 +10,7 @@ import {
   machinesTable,
   machineProcessMappingTable,
   productsTable,
+  productionEntryTable,
 } from "../db/schema.js";
 import { AppError } from "../middleware/validate.js";
 import { recordAudit } from "./audit.service.js";
@@ -190,13 +191,30 @@ export async function assignMachines(orderId, processId, machines, user) {
  * Cascades completed units to the next process and recomputes order status.
  * All within a transaction with row locks to be fail-safe under concurrency.
  */
-export async function completeProcess(orderId, processId, quantity, user) {
+export async function completeProcess(orderId, processId, quantity, user, extra = {}) {
   if (quantity <= 0) throw new AppError("Quantity must be positive", 400);
+  const { machineId = null, productionIssueReason = null } = extra;
 
   return db.transaction(async (tx) => {
     const op = await loadOrderProcess(tx, orderId, processId, { forUpdate: true });
     if (op.status === STATUS.LOCKED) {
       throw new AppError("Process is locked; the previous process must complete first", 409);
+    }
+
+    // If a machine is named, it must be mapped to this process.
+    if (machineId != null) {
+      const [validMachine] = await tx
+        .select({ id: machineProcessMappingTable.id })
+        .from(machineProcessMappingTable)
+        .where(
+          and(
+            eq(machineProcessMappingTable.processId, processId),
+            eq(machineProcessMappingTable.machineId, machineId)
+          )
+        );
+      if (!validMachine) {
+        throw new AppError("Machine is not valid for this process", 400);
+      }
     }
 
     const remaining = op.availableQuantity - op.completedQuantity;
@@ -271,6 +289,24 @@ export async function completeProcess(orderId, processId, quantity, user) {
         })
         .where(eq(orderProcessesTable.id, next.id));
     }
+
+    // Record the production this completion represents, so it shows in the
+    // manager's Production Log alongside machine/worker/issue detail.
+    let reasonValue = null;
+    if (Array.isArray(productionIssueReason)) {
+      reasonValue = productionIssueReason.length ? JSON.stringify(productionIssueReason) : null;
+    } else if (typeof productionIssueReason === "string" && productionIssueReason.trim()) {
+      reasonValue = productionIssueReason.trim();
+    }
+    await tx.insert(productionEntryTable).values({
+      productId: order.productId,
+      processId,
+      machineId,
+      workerName: user?.username || "Unknown",
+      unitsProduced: quantity,
+      productionIssueReason: reasonValue,
+      date: new Date(),
+    });
 
     await recordAudit(tx, {
       userId: user?.id,
