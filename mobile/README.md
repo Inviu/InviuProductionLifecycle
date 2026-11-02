@@ -68,22 +68,25 @@ Relevant files: `services/offlineQueue.js`, `services/storage.js`,
 
 ## Over-the-air updates (EAS Update)
 
-Build profiles are wired with update channels (`preview`, `production`). To
-enable OTA so you can push JS fixes without rebuilding/redistributing the app,
-run once after `eas init`:
+OTA is pre-wired: `expo-updates` is installed, `runtimeVersion` is set
+(`app.json`), and the build profiles carry update channels (`preview`,
+`production`) in `eas.json`. The only step left needs your Expo account — after
+`eas init`, run once:
 
 ```bash
 eas update:configure
 ```
 
-Then publish an update any time with:
+That links the app to your project (adds the update URL). From then on, publish
+a JS fix to everyone without rebuilding:
 
 ```bash
 eas update --channel preview --message "what changed"
 ```
 
-Installed apps pick it up on next launch. You only need a fresh build when you
-add a new native capability (e.g. a camera/barcode library).
+Installed apps pick it up on next launch. You only need a fresh **build** when
+you add a new **native** capability (e.g. a camera/barcode library) — plain
+JS/UI changes ship over the air.
 
 ## Building a real installable app (EAS Build)
 
