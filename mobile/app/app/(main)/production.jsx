@@ -4,6 +4,7 @@ import { TextInputField } from '@/components/TextInputField';
 import { TimePicker } from '@/components/TimePicker';
 import { useApp } from '@/context/AppContext';
 import { api } from '@/services/api';
+import { enqueue } from '@/services/offlineQueue';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import React, { useState, useCallback, useEffect } from 'react';
@@ -22,7 +23,7 @@ import {
 export default function ProductionEntryScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { appState, addProductionEntry, resetSelection } = useApp();
+  const { appState, addProductionEntry } = useApp();
   
   const [workerName, setWorkerName] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -123,40 +124,49 @@ export default function ProductionEntryScreen() {
       return;
     }
 
+    const payload = {
+      productId: appState.selectedProduct.id,
+      processId: appState.selectedProcess.id,
+      machineId: appState.selectedMachine?.id || null,
+      workerName: workerName.trim(),
+      shiftStartTime: startTime,
+      shiftEndTime: endTime,
+      unitsProduced: Number(unitsProduced),
+      productionIssueReason: reasons.length > 0 ? reasons : null,
+    };
+
+    const resetAndReturn = () => {
+      setWorkerName('');
+      setStartTime('');
+      setEndTime('');
+      setUnitsProduced('');
+      setReasons([]);
+      router.back();
+    };
+
     setIsLoading(true);
 
     try {
-      const data = await api.production.create({
-        productId: appState.selectedProduct.id,
-        processId: appState.selectedProcess.id,
-        machineId: appState.selectedMachine?.id || null,
-        workerName: workerName.trim(),
-        shiftStartTime: startTime,
-        shiftEndTime: endTime,
-        unitsProduced: Number(unitsProduced),
-        productionIssueReason: reasons.length > 0 ? reasons : null,
-      });
-
+      const data = await api.production.create(payload);
       addProductionEntry(data);
       setIsLoading(false);
-
       Alert.alert('Success', 'Production entry saved successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Reset form and go back to machine screen
-            setWorkerName('');
-            setStartTime('');
-            setEndTime('');
-            setUnitsProduced('');
-            setReasons([]);
-            router.back();
-          },
-        },
+        { text: 'OK', onPress: resetAndReturn },
       ]);
     } catch (error) {
       setIsLoading(false);
-      Alert.alert('Error', error.message || 'Failed to save production entry');
+      if (error && error.isNetworkError) {
+        // No connection: save it on the device; it syncs automatically later.
+        await enqueue(payload);
+        addProductionEntry(payload);
+        Alert.alert(
+          'Saved offline',
+          "No connection right now — this entry is saved on the device and will sync automatically when you're back online.",
+          [{ text: 'OK', onPress: resetAndReturn }]
+        );
+      } else {
+        Alert.alert('Error', (error && error.message) || 'Failed to save production entry');
+      }
     }
   };
 

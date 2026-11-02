@@ -1,5 +1,5 @@
-import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -7,7 +7,6 @@ import { Alert, Modal, Pressable, SafeAreaView, StyleSheet, Text, View } from 'r
 
 export default function MainLayout() {
   const router = useRouter();
-  const { resetSelection } = useApp();
   const { logout } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -24,7 +23,8 @@ export default function MainLayout() {
   };
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerShown: true,
@@ -75,6 +75,9 @@ export default function MainLayout() {
         <Stack.Screen name="machine" options={{ title: 'Select Machine' }} />
         <Stack.Screen name="production" options={{ title: 'Production Entry' }} />
       </Stack>
+      </View>
+
+      <OfflineBanner />
 
       <Modal
         visible={menuVisible}
@@ -106,7 +109,7 @@ export default function MainLayout() {
           </SafeAreaView>
         </Pressable>
       </Modal>
-    </>
+    </View>
   );
 }
 

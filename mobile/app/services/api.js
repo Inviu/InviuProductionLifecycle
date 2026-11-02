@@ -1,12 +1,17 @@
 // Central API client for the INVIU mobile app.
 //
 // Talks to the shared FlowForge web backend (same database the web dashboard
-// uses), so anything logged from the phone is visible on the web and vice
-// versa. The base URL comes from app.json -> expo.extra.apiUrl so it can be
-// changed per environment without touching code.
+// uses). The base URL comes from app.json -> expo.extra.apiUrl.
+//
+// Offline behaviour:
+//   - GET calls that pass a cacheKey store their last-good response and fall
+//     back to it when the device is offline, so operators can keep navigating.
+//   - Thrown errors carry metadata (`isNetworkError`, `status`) so callers and
+//     the offline queue can tell a dropped connection from a server rejection.
 
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getJSON, setJSON } from "./storage";
 
 const RAW_BASE =
   Constants?.expoConfig?.extra?.apiUrl ||
@@ -16,11 +21,11 @@ const RAW_BASE =
 export const BASE_URL = RAW_BASE.replace(/\/+$/, "");
 
 const TOKEN_KEY = "inviu_token";
+const CACHE_PREFIX = "inviu_cache:";
 
 let authToken = null;
 let onUnauthorized = null;
 
-// Allow the auth layer to react to a 401 (e.g. force logout).
 export function setUnauthorizedHandler(fn) {
   onUnauthorized = fn;
 }
@@ -44,7 +49,7 @@ export async function setToken(token) {
     if (token) await AsyncStorage.setItem(TOKEN_KEY, token);
     else await AsyncStorage.removeItem(TOKEN_KEY);
   } catch {
-    // Non-fatal: token still lives in memory for this session.
+    /* token still held in memory for this session */
   }
 }
 
@@ -52,7 +57,13 @@ export async function clearToken() {
   await setToken(null);
 }
 
-async function request(path, { method = "GET", body, auth = true } = {}) {
+function networkError() {
+  const e = new Error("You appear to be offline.");
+  e.isNetworkError = true;
+  return e;
+}
+
+async function request(path, { method = "GET", body, auth = true, cacheKey = null } = {}) {
   const headers = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth && authToken) headers["Authorization"] = `Bearer ${authToken}`;
@@ -64,14 +75,21 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-  } catch (networkErr) {
-    throw new Error("Network error — check your connection and try again.");
+  } catch {
+    // Offline: serve last-good cache for cacheable reads, else signal offline.
+    if (cacheKey) {
+      const cached = await getJSON(CACHE_PREFIX + cacheKey, null);
+      if (cached !== null) return cached;
+    }
+    throw networkError();
   }
 
   if (res.status === 401) {
     await clearToken();
     if (onUnauthorized) onUnauthorized();
-    throw new Error("Session expired. Please log in again.");
+    const e = new Error("Session expired. Please log in again.");
+    e.status = 401;
+    throw e;
   }
 
   const text = await res.text();
@@ -83,31 +101,31 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
   }
 
   if (!res.ok) {
-    const message =
-      (data && (data.error || data.message)) || `Request failed (${res.status})`;
-    throw new Error(message);
+    const e = new Error((data && (data.error || data.message)) || `Request failed (${res.status})`);
+    e.status = res.status;
+    throw e;
   }
+
+  if (cacheKey) await setJSON(CACHE_PREFIX + cacheKey, data);
   return data;
 }
 
 export const api = {
   auth: {
     login: (username, password) =>
-      request("/api/auth/login", {
-        method: "POST",
-        body: { username, password },
-        auth: false,
-      }),
+      request("/api/auth/login", { method: "POST", body: { username, password }, auth: false }),
     me: () => request("/api/auth/me"),
   },
   products: {
-    list: () => request("/api/products"),
+    list: () => request("/api/products", { cacheKey: "products" }),
   },
   processes: {
-    forProduct: (productId) => request(`/api/products/${productId}/processes`),
+    forProduct: (productId) =>
+      request(`/api/products/${productId}/processes`, { cacheKey: `processes:${productId}` }),
   },
   machines: {
-    forProcess: (processId) => request(`/api/machines?processId=${processId}`),
+    forProcess: (processId) =>
+      request(`/api/machines?processId=${processId}`, { cacheKey: `machines:${processId}` }),
   },
   production: {
     create: (payload) =>

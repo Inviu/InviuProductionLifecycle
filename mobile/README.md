@@ -48,6 +48,43 @@ Login → pick a product → pick a process → pick a machine (skipped if the p
 has none) → enter the shift (worker, start/end time, units, any issue reasons) →
 submit. The entry is saved to the shared database.
 
+## Offline behaviour (shop-floor fail-safe)
+
+The app is built to survive a flaky Wi-Fi connection on the floor:
+
+- **Writes are never lost.** If a production entry is submitted while offline,
+  it's saved on the device and the operator sees "Saved offline". A background
+  queue retries automatically the moment the connection returns (it also retries
+  on app open). This uses `@react-native-community/netinfo` to detect
+  connectivity.
+- **Reads keep working.** The product / process / machine lists are cached, so
+  an operator can keep navigating during a short dropout from the last-good data.
+- **Status is visible.** A banner shows "Offline" and how many entries are
+  waiting to sync; tapping it forces a retry.
+
+Relevant files: `services/offlineQueue.js`, `services/storage.js`,
+`services/api.js` (read-through cache), `hooks/useOfflineSync.js`,
+`components/OfflineBanner.jsx`.
+
+## Over-the-air updates (EAS Update)
+
+Build profiles are wired with update channels (`preview`, `production`). To
+enable OTA so you can push JS fixes without rebuilding/redistributing the app,
+run once after `eas init`:
+
+```bash
+eas update:configure
+```
+
+Then publish an update any time with:
+
+```bash
+eas update --channel preview --message "what changed"
+```
+
+Installed apps pick it up on next launch. You only need a fresh build when you
+add a new native capability (e.g. a camera/barcode library).
+
 ## Building a real installable app (EAS Build)
 
 Expo Go + `npx expo start` is only for development. To put the app on a real
