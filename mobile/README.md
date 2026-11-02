@@ -44,9 +44,17 @@ restart Expo.
 
 ## Flow
 
-Login → pick a product → pick a process → pick a machine (skipped if the process
-has none) → enter the shift (worker, start/end time, units, any issue reasons) →
-submit. The entry is saved to the shared database.
+After login the app opens on a **Home hub** with two modes:
+
+1. **Work Orders** — the operator queue of actionable steps (manager-created
+   orders that are unlocked and still have units left). For each, the operator
+   enters a quantity and taps **Done**; the backend decrements inventory,
+   advances the order, and unlocks the next step. Work-order steps need a live
+   connection (they touch shared inventory/locking), so this mode is online-only.
+2. **Log Production** — pick a product → process → machine (skipped if the
+   process has none) → enter the shift (worker, start/end time, units, any issue
+   reasons) → submit. Saved to the shared database, and **offline-capable**
+   (see below).
 
 ## Offline behaviour (shop-floor fail-safe)
 

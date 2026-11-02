@@ -135,6 +135,17 @@ export const api = {
       return request(`/api/production-entries${qs ? `?${qs}` : ""}`);
     },
   },
+  operator: {
+    // Actionable shop-floor queue. Cached so the list survives a brief dropout.
+    queue: () => request("/api/operator/queue", { cacheKey: "operator_queue" }),
+  },
+  workOrders: {
+    complete: (orderId, processId, quantity) =>
+      request(`/api/work-orders/${orderId}/processes/${processId}/complete`, {
+        method: "POST",
+        body: { quantity },
+      }),
+  },
 };
 
 export default api;

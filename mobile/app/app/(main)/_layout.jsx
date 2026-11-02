@@ -64,13 +64,15 @@ export default function MainLayout() {
           ),
         }}
       >
-        <Stack.Screen 
-          name="index" 
-          options={{ 
-            title: 'Select Product',
+        <Stack.Screen
+          name="index"
+          options={{
+            title: 'Home',
             headerLeft: () => null,
-          }} 
+          }}
         />
+        <Stack.Screen name="work-orders" options={{ title: 'Work Orders' }} />
+        <Stack.Screen name="products" options={{ title: 'Select Product' }} />
         <Stack.Screen name="process" options={{ title: 'Select Process' }} />
         <Stack.Screen name="machine" options={{ title: 'Select Machine' }} />
         <Stack.Screen name="production" options={{ title: 'Production Entry' }} />
