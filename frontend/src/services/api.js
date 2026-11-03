@@ -102,6 +102,10 @@ export const api = {
 
   reports: {
     summary: () => request("/api/reports/summary"),
+    efficiency: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return request(`/api/reports/efficiency${qs ? `?${qs}` : ""}`);
+    },
   },
 
   production: {
