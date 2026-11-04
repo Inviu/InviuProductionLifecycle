@@ -30,7 +30,9 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    const result = await login(username.trim(), password);
+    // Normalize the username so a phone keyboard auto-capitalizing the first
+    // letter (Operator -> operator) can't cause a spurious "invalid credentials".
+    const result = await login(username.trim().toLowerCase(), password);
     setIsLoading(false);
 
     if (result.ok) {
@@ -61,6 +63,8 @@ export default function LoginScreen() {
             placeholder="Enter username"
             value={username}
             onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <View style={styles.passwordFieldContainer}>
@@ -72,6 +76,8 @@ export default function LoginScreen() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
                 placeholderTextColor="#CCCCCC"
               />
               <TouchableOpacity

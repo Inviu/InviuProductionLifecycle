@@ -17,6 +17,8 @@ interface TextInputFieldProps {
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
   numberOfLines?: number;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: boolean;
 }
 
 export function TextInputField({
@@ -28,6 +30,8 @@ export function TextInputField({
   keyboardType = 'default',
   multiline = false,
   numberOfLines = 1,
+  autoCapitalize,
+  autoCorrect,
 }: TextInputFieldProps) {
   return (
     <View style={[styles.container, style]}>
@@ -40,6 +44,8 @@ export function TextInputField({
         keyboardType={keyboardType}
         multiline={multiline}
         numberOfLines={numberOfLines}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
         placeholderTextColor="#CCCCCC"
       />
     </View>
