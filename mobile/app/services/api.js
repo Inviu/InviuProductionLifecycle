@@ -84,7 +84,10 @@ async function request(path, { method = "GET", body, auth = true, cacheKey = nul
     throw networkError();
   }
 
-  if (res.status === 401) {
+  // A 401 on an *authenticated* request means the saved session expired.
+  // A 401 on the login call itself just means bad credentials — fall through
+  // so the real server message ("Invalid username or password") is shown.
+  if (res.status === 401 && auth && authToken) {
     await clearToken();
     if (onUnauthorized) onUnauthorized();
     const e = new Error("Session expired. Please log in again.");
