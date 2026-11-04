@@ -321,6 +321,84 @@ export async function completeProcess(orderId, processId, quantity, user, extra 
   });
 }
 
+/**
+ * Auto-credit a shop-floor production log to the oldest open work order for its
+ * product: advances the matching, unlocked process step (capped at remaining),
+ * cascades completed units to the next step, and recomputes order status.
+ * Inventory gating is intentionally skipped — a production log is ground truth
+ * for what was actually made. Best-effort: if no open order has an actionable
+ * step for this process, it does nothing. Returns { orderId, credited } or null.
+ */
+export async function autoCreditWorkOrder({ productId, processId, quantity, user }) {
+  if (!(quantity > 0)) return null;
+  return db.transaction(async (tx) => {
+    const openOrders = await tx
+      .select({ id: ordersTable.id })
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.productId, productId),
+          inArray(ordersTable.status, [ORDER_STATUS.PENDING, ORDER_STATUS.IN_PROGRESS])
+        )
+      )
+      .orderBy(ordersTable.id);
+
+    for (const order of openOrders) {
+      const [op] = await tx
+        .select()
+        .from(orderProcessesTable)
+        .where(
+          and(
+            eq(orderProcessesTable.orderId, order.id),
+            eq(orderProcessesTable.processId, processId)
+          )
+        )
+        .for("update");
+      if (!op || op.status === STATUS.LOCKED || op.status === STATUS.COMPLETED) continue;
+
+      const remaining = op.availableQuantity - op.completedQuantity;
+      if (remaining <= 0) continue;
+
+      const credit = Math.min(quantity, remaining);
+      const newCompleted = op.completedQuantity + credit;
+      const fullyDone = op.availableQuantity > 0 && newCompleted >= op.availableQuantity;
+      await tx
+        .update(orderProcessesTable)
+        .set({ completedQuantity: newCompleted, status: fullyDone ? STATUS.COMPLETED : op.status })
+        .where(eq(orderProcessesTable.id, op.id));
+
+      const [next] = await tx
+        .select()
+        .from(orderProcessesTable)
+        .where(
+          and(
+            eq(orderProcessesTable.orderId, order.id),
+            eq(orderProcessesTable.sequence, op.sequence + 1)
+          )
+        )
+        .for("update");
+      if (next) {
+        const unlock = newCompleted > 0 && next.status === STATUS.LOCKED;
+        await tx
+          .update(orderProcessesTable)
+          .set({ availableQuantity: newCompleted, status: unlock ? STATUS.READY : next.status })
+          .where(eq(orderProcessesTable.id, next.id));
+      }
+
+      await recordAudit(tx, {
+        userId: user?.id,
+        action: "work_order.auto_credit",
+        entity: "order_process",
+        entityId: op.id,
+        details: { orderId: order.id, processId, credited: credit, source: "production_log" },
+      });
+      await recomputeOrderStatus(tx, order.id);
+      return { orderId: order.id, credited: credit };
+    }
+    return null;
+  });
+}
+
 export async function deleteWorkOrder(orderId, user) {
   const [deleted] = await db
     .delete(ordersTable)

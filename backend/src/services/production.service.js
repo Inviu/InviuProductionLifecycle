@@ -8,6 +8,7 @@ import {
   machineProcessMappingTable,
 } from "../db/schema.js";
 import { AppError } from "../middleware/validate.js";
+import { autoCreditWorkOrder } from "./workOrder.service.js";
 
 // Build a Date from an entry date (or today) and an "HH:MM" clock time.
 function combineDateTime(dateString, hhmm) {
@@ -109,6 +110,20 @@ export async function createProductionEntry(input, user) {
       productionIssueReason: reasonValue,
     })
     .returning();
+
+  // Auto-credit the matching open work order with the good units (best-effort:
+  // a shop-floor log must never fail because no order matches).
+  try {
+    const credited = await autoCreditWorkOrder({
+      productId,
+      processId,
+      quantity: unitsProduced,
+      user,
+    });
+    if (credited) row.creditedToOrder = credited.orderId;
+  } catch {
+    /* ignore — the production entry is saved regardless */
+  }
 
   return row;
 }
