@@ -4,7 +4,7 @@ import { HomePage } from './pages/HomePage';
 import { WorkOrderPage } from './pages/WorkOrderPage';
 import { OperatorPage } from './pages/OperatorPage';
 import { ProductionLogPage } from './pages/ProductionLogPage';
-import { EfficiencyPage } from './pages/EfficiencyPage';
+import { AgentPage } from './pages/AgentPage';
 import { Loader } from 'lucide-react';
 
 function App() {
@@ -26,7 +26,7 @@ function App() {
       {currentPage === 'workorder' && <WorkOrderPage />}
       {currentPage === 'operator' && <OperatorPage />}
       {currentPage === 'production' && <ProductionLogPage />}
-      {currentPage === 'efficiency' && <EfficiencyPage />}
+      {currentPage === 'efficiency' && <AgentPage />}
     </>
   );
 }

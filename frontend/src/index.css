@@ -1,3 +1,38 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Efficiency agent page — industrial palette, condensed numerals. */
+.agent {
+  --bg: #eceeea; --surface: #f8f9f6; --sunk: #e2e6e1; --ink: #1c2226; --muted: #59646a; --line: #c9d0ca;
+  --ok: #2f6b4f; --ok-soft: #d5e5db; --warn: #a86e0c; --warn-soft: #f3e3c2; --bad: #ae3a2f; --bad-soft: #f2d6d1;
+  --steel: #3d5a6c; --steel-soft: #d3dee4; --belt: #8a948f;
+  background: var(--bg); color: var(--ink);
+  font-family: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+.agent .cond { font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.agent .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.agent .muted { color: var(--muted); }
+.agent .pill { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.agent .pill.ok { background: var(--ok-soft); color: var(--ok); }
+.agent .pill.warn { background: var(--warn-soft); color: var(--warn); }
+.agent .pill.bad { background: var(--bad-soft); color: var(--bad); }
+.agent .pill.info { background: var(--steel-soft); color: var(--steel); }
+.agent .pill.none { background: var(--sunk); color: var(--muted); }
+.agent .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.agent .seg button { padding: 6px 12px; font-size: .875rem; border-left: 1px solid var(--line); }
+.agent .seg button:first-child { border-left: 0; }
+.agent .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.agent .btn { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font-size: .875rem; }
+.agent .btn:hover { border-color: var(--ink); }
+.agent .btn.primary { background: var(--ok); border-color: var(--ok); color: #fff; }
+.agent .btn[disabled] { opacity: .55; }
+.agent :focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+.agent .pipe-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface); display: grid; place-items: center; font-size: .7rem; font-weight: 700; color: var(--surface); flex: none; }
+.agent .pipe-on .pipe-dot { background: var(--ok); border-color: var(--ok); }
+.agent .pipe-run .pipe-dot { border-color: var(--ok); animation: agentpulse .7s ease-in-out infinite alternate; }
+@keyframes agentpulse { from { box-shadow: 0 0 0 0 var(--ok-soft); } to { box-shadow: 0 0 0 5px var(--ok-soft); } }
+@media (prefers-reduced-motion: reduce) { .agent .pipe-run .pipe-dot { animation: none; } }
+.agent table.kpi th, .agent table.kpi td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.agent table.kpi th:first-child, .agent table.kpi td:first-child { text-align: left; }
+.agent table.kpi th { font-weight: 600; color: var(--muted); font-size: .78rem; vertical-align: bottom; }

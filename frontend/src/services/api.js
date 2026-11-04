@@ -27,7 +27,7 @@ export const setUnauthorizedHandler = (fn) => {
   onUnauthorized = fn;
 };
 
-const request = async (path, { method = "GET", body } = {}) => {
+const request = async (path, { method = "GET", body, signal } = {}) => {
   const headers = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
@@ -36,6 +36,7 @@ const request = async (path, { method = "GET", body } = {}) => {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (response.status === 401) {
@@ -111,6 +112,18 @@ export const api = {
   processes: {
     list: () => request("/api/processes"),
     update: (id, data) => request(`/api/processes/${id}`, { method: "PUT", body: data }),
+  },
+
+  agent: {
+    overview: (params = {}) => {
+      const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+      return request(`/api/agent/overview${qs ? `?${qs}` : ""}`);
+    },
+    feedback: (body) => request("/api/agent/feedback", { method: "POST", body }),
+    resetLearning: () => request("/api/agent/learning", { method: "DELETE" }),
+    settings: () => request("/api/agent/settings"),
+    saveSettings: (body) => request("/api/agent/settings", { method: "PUT", body }),
+    ask: (body, signal) => request("/api/agent/ask", { method: "POST", body, signal }),
   },
 
   production: {

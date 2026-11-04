@@ -203,3 +203,27 @@ export const productProcessInventoryTable = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   }
 );
+
+// Efficiency agent: what people did with a recommendation. "done" stores the
+// metric at that moment so the page can show the before/after result later;
+// "rejected" (marked "Not the cause") lowers that rule's confidence.
+export const agentFeedbackTable = pgTable("agent_feedback", {
+  id: serial("id").primaryKey(),
+  rule: varchar("rule", { length: 40 }).notNull(),
+  scope: varchar("scope", { length: 120 }).notNull(), // e.g. "machine:20", "step:3"
+  title: text("title").notNull(),
+  action: varchar("action", { length: 20 }).notNull(), // done | rejected
+  metricKind: varchar("metric_kind", { length: 40 }),
+  metricKey: varchar("metric_key", { length: 120 }),
+  metricLabel: varchar("metric_label", { length: 120 }),
+  metricBefore: text("metric_before"), // number as text (nullable)
+  userId: integer("user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Plant-level settings (key/value), e.g. value per good piece, target OEE.
+export const appSettingsTable = pgTable("app_settings", {
+  key: varchar("key", { length: 60 }).primaryKey(),
+  value: text("value"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

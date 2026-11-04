@@ -14,6 +14,7 @@ import operatorRoutes from "./routes/operator.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
 import reportRoutes from "./routes/reports.routes.js";
 import productionRoutes from "./routes/production.routes.js";
+import agentRoutes from "./routes/agent.routes.js";
 
 export function createApp() {
   const app = express();
@@ -55,6 +56,7 @@ export function createApp() {
   app.use("/api/audit", auditRoutes);
   app.use("/api/reports", reportRoutes);
   app.use("/api/production-entries", productionRoutes);
+  app.use("/api/agent", agentRoutes);
 
   app.use("/api", notFound);
   app.use(errorHandler);
