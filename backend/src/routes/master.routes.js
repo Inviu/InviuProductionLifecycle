@@ -164,7 +164,10 @@ router.post(
   ...manager,
   validateBody(processSchema),
   asyncHandler(async (req, res) => {
-    const [row] = await db.insert(processesTable).values({ name: req.body.name }).returning();
+    const [row] = await db
+      .insert(processesTable)
+      .values({ name: req.body.name, standardRatePerHour: req.body.standardRatePerHour ?? null })
+      .returning();
     res.status(201).json(row);
   })
 );
@@ -174,9 +177,13 @@ router.put(
   ...manager,
   validateBody(processSchema),
   asyncHandler(async (req, res) => {
+    const patch = { name: req.body.name };
+    if (req.body.standardRatePerHour !== undefined) {
+      patch.standardRatePerHour = req.body.standardRatePerHour;
+    }
     const [row] = await db
       .update(processesTable)
-      .set({ name: req.body.name })
+      .set(patch)
       .where(eq(processesTable.id, Number(req.params.id)))
       .returning();
     if (!row) throw new AppError("Process not found", 404);

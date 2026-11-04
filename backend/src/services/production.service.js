@@ -31,6 +31,9 @@ export async function createProductionEntry(input, user) {
     shiftStartTime,
     shiftEndTime,
     unitsProduced,
+    rejectedUnits,
+    downtimeMinutes,
+    downtimeReason,
     date,
     productionIssueReason,
   } = input;
@@ -100,6 +103,9 @@ export async function createProductionEntry(input, user) {
       shiftEndTime: endDateTime,
       date: entryDate,
       unitsProduced,
+      rejectedUnits: Number.isFinite(rejectedUnits) ? rejectedUnits : 0,
+      downtimeMinutes: Number.isFinite(downtimeMinutes) ? downtimeMinutes : 0,
+      downtimeReason: downtimeReason?.trim() || null,
       productionIssueReason: reasonValue,
     })
     .returning();

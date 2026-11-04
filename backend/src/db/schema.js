@@ -38,6 +38,8 @@ export const productsTable = pgTable("products", {
 export const processesTable = pgTable("processes", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
+  // Target good output per hour at full speed — used for the Performance factor of OEE.
+  standardRatePerHour: integer("standard_rate_per_hour"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -95,7 +97,11 @@ export const productionEntryTable = pgTable("production_entry", {
   shiftStartTime: timestamp("shift_start_time"),
   shiftEndTime: timestamp("shift_end_time"),
   date: timestamp("date").defaultNow().notNull(),
-  unitsProduced: integer("units_produced").notNull(),
+  unitsProduced: integer("units_produced").notNull(), // good units
+  // OEE inputs (optional; default 0): scrap for Quality, downtime minutes for Availability.
+  rejectedUnits: integer("rejected_units").notNull().default(0),
+  downtimeMinutes: integer("downtime_minutes").notNull().default(0),
+  downtimeReason: text("downtime_reason"),
   productionIssueReason: text("production_issue_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

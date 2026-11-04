@@ -24,6 +24,8 @@ export const productSchema = z.object({
 
 export const processSchema = z.object({
   name: z.string().min(1).max(255),
+  // Target good units/hr at full speed — drives the OEE Performance factor.
+  standardRatePerHour: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
 });
 
 export const machineSchema = z.object({
@@ -86,7 +88,11 @@ export const productionEntrySchema = z.object({
   workerName: z.string().min(1).max(255).optional(),
   shiftStartTime: timeHHMM,
   shiftEndTime: timeHHMM,
-  unitsProduced: z.coerce.number().int().positive(),
+  unitsProduced: z.coerce.number().int().positive(), // good units
+  // OEE inputs (optional): scrap count and downtime minutes for this shift.
+  rejectedUnits: z.coerce.number().int().min(0).optional(),
+  downtimeMinutes: z.coerce.number().int().min(0).optional(),
+  downtimeReason: z.union([z.string(), z.null()]).optional(),
   // Optional entry date (ISO or YYYY-MM-DD); defaults to today.
   date: z.union([z.string(), z.null()]).optional(),
   // One reason, a list of reasons, or none.

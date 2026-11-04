@@ -29,6 +29,8 @@ export default function ProductionEntryScreen() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [unitsProduced, setUnitsProduced] = useState('');
+  const [rejectedUnits, setRejectedUnits] = useState('');
+  const [downtimeMinutes, setDowntimeMinutes] = useState('');
   const [reasons, setReasons] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -36,7 +38,7 @@ export default function ProductionEntryScreen() {
   const discardConfirmedRef = React.useRef(false);
 
   // Check if form has any data
-  const hasFormData = workerName.trim() || startTime || endTime || unitsProduced.trim() || reasons.length > 0;
+  const hasFormData = workerName.trim() || startTime || endTime || unitsProduced.trim() || rejectedUnits.trim() || downtimeMinutes.trim() || reasons.length > 0;
 
   const showUnsavedAlert = useCallback((navigationAction) => {
     Alert.alert(
@@ -132,6 +134,8 @@ export default function ProductionEntryScreen() {
       shiftStartTime: startTime,
       shiftEndTime: endTime,
       unitsProduced: Number(unitsProduced),
+      rejectedUnits: rejectedUnits.trim() ? Number(rejectedUnits) : 0,
+      downtimeMinutes: downtimeMinutes.trim() ? Number(downtimeMinutes) : 0,
       productionIssueReason: reasons.length > 0 ? reasons : null,
     };
 
@@ -140,6 +144,8 @@ export default function ProductionEntryScreen() {
       setStartTime('');
       setEndTime('');
       setUnitsProduced('');
+      setRejectedUnits('');
+      setDowntimeMinutes('');
       setReasons([]);
       router.back();
     };
@@ -224,10 +230,26 @@ export default function ProductionEntryScreen() {
           />
 
           <TextInputField
-            label="Units Produced"
-            placeholder="Enter number of units"
+            label="Units Produced (good)"
+            placeholder="Enter number of good units"
             value={unitsProduced}
             onChangeText={setUnitsProduced}
+            keyboardType="decimal-pad"
+          />
+
+          <TextInputField
+            label="Rejected / Scrap (optional)"
+            placeholder="0"
+            value={rejectedUnits}
+            onChangeText={setRejectedUnits}
+            keyboardType="decimal-pad"
+          />
+
+          <TextInputField
+            label="Downtime this shift, minutes (optional)"
+            placeholder="0"
+            value={downtimeMinutes}
+            onChangeText={setDowntimeMinutes}
             keyboardType="decimal-pad"
           />
 

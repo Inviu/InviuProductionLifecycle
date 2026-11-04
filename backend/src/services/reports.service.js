@@ -54,13 +54,38 @@ function parseReasons(value) {
   }
 }
 
-const UNITS = sql`coalesce(sum(${productionEntryTable.unitsProduced}),0)::int`;
+const UNITS = sql`coalesce(sum(${productionEntryTable.unitsProduced}),0)::int`; // good units
+const REJECTED = sql`coalesce(sum(${productionEntryTable.rejectedUnits}),0)::int`;
 // Shift hours: null shift windows (work-order-sourced entries) are skipped by sum().
 const HOURS = sql`coalesce(sum(extract(epoch from (${productionEntryTable.shiftEndTime} - ${productionEntryTable.shiftStartTime})))/3600.0, 0)::float`;
+const DOWNTIME_HOURS = sql`coalesce(sum(${productionEntryTable.downtimeMinutes})/60.0, 0)::float`;
 const ENTRIES = sql`count(*)::int`;
 
 function rate(units, hours) {
   return hours > 0 ? Math.round((units / hours) * 10) / 10 : null;
+}
+
+const pct = (x) => (x == null ? null : Math.round(x * 1000) / 10); // fraction -> 1-dp percent
+
+// OEE = Availability x Performance x Quality, each 0..1, from one aggregated group.
+// Performance needs a standard rate (units/hr); without it, performance/oee stay null.
+function oeeFactors({ units = 0, rejected = 0, hours = 0, downtimeHours = 0, standardRate = null }) {
+  const planned = hours;
+  const run = Math.max(planned - downtimeHours, 0);
+  const total = units + rejected;
+  const availability = planned > 0 ? run / planned : null;
+  const quality = total > 0 ? units / total : null;
+  const performance = standardRate && run > 0 ? Math.min(units / run / standardRate, 1) : null;
+  const oee =
+    availability != null && performance != null && quality != null
+      ? availability * performance * quality
+      : null;
+  return {
+    availability: pct(availability),
+    performance: pct(performance),
+    quality: pct(quality),
+    oee: pct(oee),
+  };
 }
 
 /**
@@ -75,7 +100,7 @@ export async function getEfficiency({ from, to } = {}) {
   const where = filters.length ? and(...filters) : undefined;
 
   const [totals] = await db
-    .select({ units: UNITS, hours: HOURS, entries: ENTRIES })
+    .select({ units: UNITS, rejected: REJECTED, hours: HOURS, downtimeHours: DOWNTIME_HOURS, entries: ENTRIES })
     .from(productionEntryTable)
     .where(where);
 
@@ -84,7 +109,9 @@ export async function getEfficiency({ from, to } = {}) {
       machineId: machinesTable.id,
       machineName: machinesTable.name,
       units: UNITS,
+      rejected: REJECTED,
       hours: HOURS,
+      downtimeHours: DOWNTIME_HOURS,
       entries: ENTRIES,
     })
     .from(productionEntryTable)
@@ -96,14 +123,17 @@ export async function getEfficiency({ from, to } = {}) {
     .select({
       processId: processesTable.id,
       processName: processesTable.name,
+      standardRate: processesTable.standardRatePerHour,
       units: UNITS,
+      rejected: REJECTED,
       hours: HOURS,
+      downtimeHours: DOWNTIME_HOURS,
       entries: ENTRIES,
     })
     .from(productionEntryTable)
     .innerJoin(processesTable, eq(processesTable.id, productionEntryTable.processId))
     .where(where)
-    .groupBy(processesTable.id, processesTable.name);
+    .groupBy(processesTable.id, processesTable.name, processesTable.standardRatePerHour);
 
   const byProduct = await db
     .select({
@@ -152,21 +182,58 @@ export async function getEfficiency({ from, to } = {}) {
     .map(([reason, count]) => ({ reason, count }))
     .sort((a, b) => b.count - a.count);
 
-  const addRate = (rows) =>
-    rows
-      .map((r) => ({ ...r, ratePerHour: rate(r.units, r.hours) }))
-      .sort((a, b) => b.units - a.units);
+  const withRate = (r) => ({ ...r, ratePerHour: rate(r.units, r.hours) });
+
+  // Per-machine: availability + quality (no per-machine standard → no performance).
+  const machines = byMachine
+    .map((r) => ({ ...withRate(r), ...oeeFactors(r) }))
+    .sort((a, b) => b.units - a.units);
+
+  // Per-process: full OEE where the process has a standard rate set.
+  const processes = byProcess
+    .map((r) => ({ ...withRate(r), standardRate: r.standardRate ?? null, ...oeeFactors(r) }))
+    .sort((a, b) => b.units - a.units);
+
+  // Overall: availability + quality from totals; performance = good-weighted average
+  // of the processes that have a standard; OEE = A x P x Q.
+  const overall = oeeFactors({
+    units: totals?.units ?? 0,
+    rejected: totals?.rejected ?? 0,
+    hours: totals?.hours ?? 0,
+    downtimeHours: totals?.downtimeHours ?? 0,
+  });
+  let perfSum = 0;
+  let perfWeight = 0;
+  for (const p of processes) {
+    if (p.performance != null) {
+      perfSum += p.performance * p.units;
+      perfWeight += p.units;
+    }
+  }
+  const overallPerformance = perfWeight > 0 ? Math.round((perfSum / perfWeight) * 10) / 10 : null;
+  const overallOee =
+    overall.availability != null && overallPerformance != null && overall.quality != null
+      ? Math.round(
+          (overall.availability / 100) * (overallPerformance / 100) * (overall.quality / 100) * 1000
+        ) / 10
+      : null;
 
   return {
     totals: {
       units: totals?.units ?? 0,
+      rejected: totals?.rejected ?? 0,
       entries: totals?.entries ?? 0,
       hours: Math.round((totals?.hours ?? 0) * 10) / 10,
+      downtimeHours: Math.round((totals?.downtimeHours ?? 0) * 10) / 10,
       avgRatePerHour: rate(totals?.units ?? 0, totals?.hours ?? 0),
       issuesLogged: lossByCause.reduce((s, l) => s + l.count, 0),
+      availability: overall.availability,
+      performance: overallPerformance,
+      quality: overall.quality,
+      oee: overallOee,
     },
-    byMachine: addRate(byMachine),
-    byProcess: addRate(byProcess),
+    byMachine: machines,
+    byProcess: processes,
     byProduct: byProduct.sort((a, b) => b.units - a.units),
     byWorker: byWorker.sort((a, b) => b.units - a.units),
     lossByCause,

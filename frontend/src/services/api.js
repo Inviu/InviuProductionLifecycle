@@ -108,6 +108,11 @@ export const api = {
     },
   },
 
+  processes: {
+    list: () => request("/api/processes"),
+    update: (id, data) => request(`/api/processes/${id}`, { method: "PUT", body: data }),
+  },
+
   production: {
     // Shift production entries logged from the mobile app.
     list: (params = {}) => {
