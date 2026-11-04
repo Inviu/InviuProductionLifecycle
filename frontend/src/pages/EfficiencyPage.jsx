@@ -135,15 +135,16 @@ export const EfficiencyPage = () => {
                 {t.performance == null
                   ? "Performance & OEE need a standard rate per step — set them via “Standard rates” above. "
                   : ""}
-                Availability needs downtime and Quality needs rejects — captured in the app’s shift log.
+                Availability comes from breakdowns and Quality from QC rejections — both captured in the app’s step forms. Logistics steps (plating moves, pallet, dispatch) are not counted here.
               </p>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 mt-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 mt-4">
               <Stat label="Good Units" value={t.units.toLocaleString()} />
               <Stat label="Rejected" value={(t.rejected ?? 0).toLocaleString()} tone="amber" />
               <Stat label="Avg Rate / hr" value={t.avgRatePerHour ?? "—"} tone="blue" />
               <Stat label="Downtime (hrs)" value={t.downtimeHours ?? 0} tone="amber" />
+              <Stat label="Bits Changed" value={t.bitsChanged ?? 0} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -167,11 +168,14 @@ export const EfficiencyPage = () => {
                 )}
               </Panel>
 
-              <Panel title="Losses by cause" subtitle="times reported" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />}>
+              <Panel title="Breakdowns by cause" subtitle="minutes lost · times" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />}>
                 {data.lossByCause.length === 0 ? (
-                  <Empty>No issues reported 🎉</Empty>
+                  <Empty>No breakdowns reported</Empty>
                 ) : (
-                  <BarList rows={data.lossByCause.map((l) => ({ label: l.reason, value: l.count }))} color="#D97706" />
+                  <BarList
+                    rows={data.lossByCause.map((l) => ({ label: l.reason, value: l.minutes ?? 0, note: `${l.count}×` }))}
+                    color="#D97706"
+                  />
                 )}
               </Panel>
 

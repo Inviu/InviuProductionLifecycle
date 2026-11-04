@@ -26,10 +26,19 @@ export const ProductionLogPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const totalUnits = useMemo(
-    () => entries.reduce((sum, e) => sum + (e.unitsProduced || 0), 0),
-    [entries]
-  );
+  const stats = useMemo(() => {
+    const breakdowns = entries.filter((e) => (e.downtimeMinutes || 0) > 0);
+    return {
+      breakdowns: breakdowns.length,
+      breakdownMinutes: breakdowns.reduce((s, e) => s + e.downtimeMinutes, 0),
+      rejections: entries.reduce((s, e) => s + (e.rejectedUnits || 0), 0),
+      bits: entries.reduce((s, e) => s + (e.bitsChanged || 0), 0),
+    };
+  }, [entries]);
+
+  // Entry dates are stored as the calendar day the operator picked (UTC midnight).
+  const fmtDate = (iso) =>
+    iso ? new Date(iso).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "-";
 
   const fmtTime = (iso) => {
     if (!iso) return "-";
@@ -94,13 +103,15 @@ export const ProductionLogPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatCard label="Total Entries" value={entries.length} />
-          <StatCard label="Units Logged" value={totalUnits} tone="blue" />
           <StatCard
-            label="Latest"
-            value={entries[0] ? new Date(entries[0].date).toLocaleDateString() : "-"}
+            label="Breakdowns"
+            value={stats.breakdowns ? `${stats.breakdowns} · ${fmtMinutes(stats.breakdownMinutes)}` : 0}
+            tone="red"
           />
+          <StatCard label="Rejections" value={stats.rejections} tone="amber" />
+          <StatCard label="Bits Changed" value={stats.bits} tone="blue" />
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
@@ -113,10 +124,10 @@ export const ProductionLogPage = () => {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {["Date", "Product", "Process", "Machine", "Worker", "Shift", "Units", "Issues"].map((h) => (
+                    {["Date", "Product", "Step", "Machine", "Worker", "Shift", "Output", "Breakdown / Notes"].map((h) => (
                       <th
                         key={h}
-                        className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider"
+                        className="px-4 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider"
                       >
                         {h}
                       </th>
@@ -133,44 +144,31 @@ export const ProductionLogPage = () => {
                   ) : (
                     entries.map((e) => (
                       <tr key={e.id} className="hover:bg-slate-50 transition">
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-700">
-                          {new Date(e.date).toLocaleDateString()}
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-700">
+                          {fmtDate(e.date)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-900 font-medium">
+                        <td className="px-4 py-3 text-slate-900 font-medium min-w-[160px]">
                           {e.productName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-700">
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-700">
                           {e.processName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-700">
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-700">
                           {e.machineName || "-"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-700">
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-700">
                           {e.workerName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-600 text-sm">
+                        <td className="px-4 py-3 whitespace-nowrap text-slate-600 text-sm">
                           {e.shiftStartTime || e.shiftEndTime
                             ? `${fmtTime(e.shiftStartTime)} – ${fmtTime(e.shiftEndTime)}`
                             : "—"}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-900 font-semibold">
-                          {e.unitsProduced}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <Output e={e} />
                         </td>
-                        <td className="px-6 py-4 text-slate-700">
-                          {e.productionIssueReasons && e.productionIssueReasons.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {e.productionIssueReasons.map((r, i) => (
-                                <span
-                                  key={i}
-                                  className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800 border border-amber-200"
-                                >
-                                  {r}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
+                        <td className="px-4 py-3 text-slate-700 min-w-[220px]">
+                          <Notes e={e} fmtTime={fmtTime} />
                         </td>
                       </tr>
                     ))
@@ -192,6 +190,67 @@ export const ProductionLogPage = () => {
 const toneMap = {
   slate: "text-slate-900",
   blue: "text-blue-600",
+  amber: "text-amber-600",
+  red: "text-red-600",
+};
+
+const fmtMinutes = (m) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`);
+
+// What the step produced, in the terms its form uses.
+const Output = ({ e }) => {
+  if (e.unitsInspected != null) {
+    return (
+      <div className="text-sm">
+        <div className="font-semibold text-slate-900">{e.unitsProduced} good</div>
+        <div className="text-slate-500">
+          {e.unitsInspected} inspected · <span className="text-amber-700">{e.rejectedUnits} rejected</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="text-sm">
+      <span className="font-semibold text-slate-900">{e.unitsProduced}</span>
+      {e.boxes != null && <span className="text-slate-500"> · {e.boxes} boxes</span>}
+    </div>
+  );
+};
+
+const Chip = ({ tone, children }) => (
+  <span
+    className={`px-2 py-0.5 text-xs rounded-full border ${
+      tone === "red"
+        ? "bg-red-50 text-red-700 border-red-200"
+        : tone === "blue"
+        ? "bg-blue-50 text-blue-700 border-blue-200"
+        : "bg-amber-100 text-amber-800 border-amber-200"
+    }`}
+  >
+    {children}
+  </span>
+);
+
+const Notes = ({ e, fmtTime }) => {
+  const chips = [];
+  if ((e.downtimeMinutes || 0) > 0) {
+    const window = e.breakdownStart ? `${fmtTime(e.breakdownStart)}–${fmtTime(e.breakdownEnd)}, ` : "";
+    chips.push(
+      <Chip key="bd" tone="red">
+        Breakdown {window}
+        {fmtMinutes(e.downtimeMinutes)}
+        {e.downtimeReason ? ` — ${e.downtimeReason}` : ""}
+      </Chip>
+    );
+  }
+  if ((e.bitsChanged || 0) > 0) {
+    chips.push(
+      <Chip key="bits" tone="blue">
+        {e.bitsChanged} {e.bitsChanged === 1 ? "bit" : "bits"} changed
+      </Chip>
+    );
+  }
+  (e.productionIssueReasons || []).forEach((r, i) => chips.push(<Chip key={`r${i}`}>{r}</Chip>));
+  return chips.length ? <div className="flex flex-wrap gap-1">{chips}</div> : <span className="text-slate-400">—</span>;
 };
 
 const StatCard = ({ label, value, tone = "slate" }) => (

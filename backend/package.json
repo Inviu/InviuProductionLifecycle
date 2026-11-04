@@ -9,7 +9,8 @@
     "seed": "node src/db/seed.js",
     "migrate": "drizzle-kit migrate",
     "test": "node --test",
-    "test:reset": "psql -h localhost -U postgres -c \"drop database if exists flowforge_test\" && psql -h localhost -U postgres -c \"create database flowforge_test\" && npm run migrate && npm run seed"
+    "test:reset": "psql -h localhost -U postgres -c \"drop database if exists flowforge_test\" && psql -h localhost -U postgres -c \"create database flowforge_test\" && npm run migrate && npm run seed",
+    "catalog:load": "node src/db/loadCatalog.js"
   },
   "keywords": [],
   "author": "",

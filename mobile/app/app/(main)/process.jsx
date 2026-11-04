@@ -66,7 +66,7 @@ export default function ProcessSelectionScreen() {
           data={processes}
           renderItem={({ item }) => (
             <ListItem
-              title={item.name}
+              title={item.sequence ? `${item.sequence}. ${item.name}` : item.name}
               description={item.description}
               onPress={() => handleSelectProcess(item)}
               icon="settings"

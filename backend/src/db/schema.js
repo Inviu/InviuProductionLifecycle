@@ -32,14 +32,25 @@ export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
+  // Product family, e.g. "Rod components" or "Sheet metal" — groups the app's product list.
+  category: varchar("category", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Which shift-log form the app shows for a step:
+//   machining       date, start/end, pcs made, breakdown (start/end/reason)
+//   machining_bits  machining + bit change (no. of bits)
+//   inspection      units inspected, rejections, good parts
+//   count           no. of units (waiting/in/received plating, pallet, dispatch)
+//   packing         units + no. of boxes
+export const FORM_TYPES = ["machining", "machining_bits", "inspection", "count", "packing"];
 
 export const processesTable = pgTable("processes", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   // Target good output per hour at full speed — used for the Performance factor of OEE.
   standardRatePerHour: integer("standard_rate_per_hour"),
+  formType: varchar("form_type", { length: 30 }).notNull().default("machining"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -102,6 +113,15 @@ export const productionEntryTable = pgTable("production_entry", {
   rejectedUnits: integer("rejected_units").notNull().default(0),
   downtimeMinutes: integer("downtime_minutes").notNull().default(0),
   downtimeReason: text("downtime_reason"),
+  // Breakdown window (machining steps). downtimeMinutes is derived from it.
+  breakdownStart: timestamp("breakdown_start"),
+  breakdownEnd: timestamp("breakdown_end"),
+  // Drill/chamfer bits changed this shift (0 = no bit change).
+  bitsChanged: integer("bits_changed").notNull().default(0),
+  // Inspection steps: units inspected (good = inspected - rejected).
+  unitsInspected: integer("units_inspected"),
+  // Packing steps: boxes packed.
+  boxes: integer("boxes"),
   productionIssueReason: text("production_issue_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

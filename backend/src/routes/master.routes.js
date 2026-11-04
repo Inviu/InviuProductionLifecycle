@@ -29,7 +29,13 @@ router.get(
   "/products",
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json(await db.select().from(productsTable).orderBy(asc(productsTable.id)));
+    // Grouped by family (Rod components, Sheet metal), then in catalog order.
+    res.json(
+      await db
+        .select()
+        .from(productsTable)
+        .orderBy(asc(productsTable.category), asc(productsTable.id))
+    );
   })
 );
 
@@ -40,7 +46,11 @@ router.post(
   asyncHandler(async (req, res) => {
     const [row] = await db
       .insert(productsTable)
-      .values({ name: req.body.name, description: req.body.description })
+      .values({
+        name: req.body.name,
+        description: req.body.description,
+        category: req.body.category ?? null,
+      })
       .returning();
     res.status(201).json(row);
   })
@@ -53,7 +63,11 @@ router.put(
   asyncHandler(async (req, res) => {
     const [row] = await db
       .update(productsTable)
-      .set({ name: req.body.name, description: req.body.description })
+      .set({
+        name: req.body.name,
+        description: req.body.description,
+        ...(req.body.category !== undefined ? { category: req.body.category } : {}),
+      })
       .where(eq(productsTable.id, Number(req.params.id)))
       .returning();
     if (!row) throw new AppError("Product not found", 404);
@@ -93,6 +107,7 @@ router.get(
       .select({
         id: processesTable.id,
         name: processesTable.name,
+        formType: processesTable.formType,
         sequence: productProcessMappingTable.sequence,
       })
       .from(productProcessMappingTable)
@@ -166,7 +181,11 @@ router.post(
   asyncHandler(async (req, res) => {
     const [row] = await db
       .insert(processesTable)
-      .values({ name: req.body.name, standardRatePerHour: req.body.standardRatePerHour ?? null })
+      .values({
+        name: req.body.name,
+        standardRatePerHour: req.body.standardRatePerHour ?? null,
+        ...(req.body.formType ? { formType: req.body.formType } : {}),
+      })
       .returning();
     res.status(201).json(row);
   })
@@ -181,6 +200,7 @@ router.put(
     if (req.body.standardRatePerHour !== undefined) {
       patch.standardRatePerHour = req.body.standardRatePerHour;
     }
+    if (req.body.formType !== undefined) patch.formType = req.body.formType;
     const [row] = await db
       .update(processesTable)
       .set(patch)

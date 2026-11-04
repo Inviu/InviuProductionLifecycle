@@ -3,7 +3,7 @@ import { useApp } from '@/context/AppContext';
 import { api } from '@/services/api';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { FlatList, SafeAreaView, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { SectionList, SafeAreaView, StyleSheet, ActivityIndicator, Text } from 'react-native';
 
 export default function ProductSelectionScreen() {
   const router = useRouter();
@@ -46,8 +46,11 @@ export default function ProductSelectionScreen() {
         <Text style={styles.errorText}>Error: {error}</Text>
       )}
       {!loading && !error && (
-        <FlatList
-          data={products}
+        <SectionList
+          sections={groupByCategory(products)}
+          renderSectionHeader={({ section }) =>
+            section.title ? <Text style={styles.sectionHeader}>{section.title}</Text> : null
+          }
           renderItem={({ item }) => (
             <ListItem
               title={item.name}
@@ -57,7 +60,7 @@ export default function ProductSelectionScreen() {
             />
           )}
           keyExtractor={(item) => item.id.toString()}
-          scrollEnabled={true}
+          stickySectionHeadersEnabled={false}
           style={styles.list}
         />
       )}
@@ -65,7 +68,32 @@ export default function ProductSelectionScreen() {
   );
 }
 
+// Rod components / Sheet metal sections, in the order the server returns them.
+function groupByCategory(products) {
+  const sections = [];
+  for (const p of products) {
+    const title = p.category || '';
+    let section = sections.find((s) => s.title === title);
+    if (!section) {
+      section = { title, data: [] };
+      sections.push(section);
+    }
+    section.data.push(p);
+  }
+  return sections;
+}
+
 const styles = StyleSheet.create({
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E3A5F',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F0F2F5',

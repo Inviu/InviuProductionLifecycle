@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
 import {
   ordersTable,
@@ -97,10 +97,25 @@ export async function getEfficiency({ from, to } = {}) {
   const filters = [];
   if (from) filters.push(gte(productionEntryTable.date, new Date(from)));
   if (to) filters.push(lte(productionEntryTable.date, new Date(to)));
-  const where = filters.length ? and(...filters) : undefined;
+  // Only production work counts toward efficiency: logistics/status steps
+  // (waiting for / in / received from plating, on pallet, dispatch) are excluded.
+  filters.push(
+    inArray(
+      productionEntryTable.processId,
+      db.select({ id: processesTable.id }).from(processesTable).where(ne(processesTable.formType, "count"))
+    )
+  );
+  const where = and(...filters);
 
   const [totals] = await db
-    .select({ units: UNITS, rejected: REJECTED, hours: HOURS, downtimeHours: DOWNTIME_HOURS, entries: ENTRIES })
+    .select({
+      units: UNITS,
+      rejected: REJECTED,
+      hours: HOURS,
+      downtimeHours: DOWNTIME_HOURS,
+      entries: ENTRIES,
+      bitsChanged: sql`coalesce(sum(${productionEntryTable.bitsChanged}),0)::int`,
+    })
     .from(productionEntryTable)
     .where(where);
 
@@ -167,20 +182,33 @@ export async function getEfficiency({ from, to } = {}) {
     .groupBy(sql`${productionEntryTable.date}::date`)
     .orderBy(sql`${productionEntryTable.date}::date`);
 
-  // Losses by cause: parse the reason values and tally in JS.
+  // Losses by cause: breakdown reasons (with minutes lost) plus any issue
+  // reasons picked on older entries. Tallied in JS.
   const reasonRows = await db
-    .select({ reason: productionEntryTable.productionIssueReason })
+    .select({
+      reason: productionEntryTable.productionIssueReason,
+      downtimeReason: productionEntryTable.downtimeReason,
+      downtimeMinutes: productionEntryTable.downtimeMinutes,
+    })
     .from(productionEntryTable)
     .where(where);
-  const lossCounts = new Map();
+  const losses = new Map();
+  const tally = (reason, minutes = 0) => {
+    const key = reason.trim();
+    if (!key) return;
+    const cur = losses.get(key.toLowerCase()) || { reason: key, count: 0, minutes: 0 };
+    cur.count += 1;
+    cur.minutes += minutes;
+    losses.set(key.toLowerCase(), cur);
+  };
   for (const r of reasonRows) {
-    for (const reason of parseReasons(r.reason)) {
-      lossCounts.set(reason, (lossCounts.get(reason) || 0) + 1);
-    }
+    if (r.downtimeReason) tally(r.downtimeReason, r.downtimeMinutes || 0);
+    else if (r.downtimeMinutes > 0) tally("Breakdown (no reason given)", r.downtimeMinutes);
+    for (const reason of parseReasons(r.reason)) tally(reason);
   }
-  const lossByCause = [...lossCounts.entries()]
-    .map(([reason, count]) => ({ reason, count }))
-    .sort((a, b) => b.count - a.count);
+  const lossByCause = [...losses.values()].sort(
+    (a, b) => b.minutes - a.minutes || b.count - a.count
+  );
 
   const withRate = (r) => ({ ...r, ratePerHour: rate(r.units, r.hours) });
 
@@ -225,6 +253,7 @@ export async function getEfficiency({ from, to } = {}) {
       entries: totals?.entries ?? 0,
       hours: Math.round((totals?.hours ?? 0) * 10) / 10,
       downtimeHours: Math.round((totals?.downtimeHours ?? 0) * 10) / 10,
+      bitsChanged: totals?.bitsChanged ?? 0,
       avgRatePerHour: rate(totals?.units ?? 0, totals?.hours ?? 0),
       issuesLogged: lossByCause.reduce((s, l) => s + l.count, 0),
       availability: overall.availability,

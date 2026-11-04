@@ -10,6 +10,8 @@ import {
 import { AppError } from "../middleware/validate.js";
 import { autoCreditWorkOrder } from "./workOrder.service.js";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 // Build a Date from an entry date (or today) and an "HH:MM" clock time.
 function combineDateTime(dateString, hhmm) {
   const dt = new Date(`${dateString}T${hhmm}:00Z`);
@@ -17,6 +19,11 @@ function combineDateTime(dateString, hhmm) {
     throw new AppError("Invalid time format. Use HH:MM.", 400);
   }
   return dt;
+}
+
+// A clock time that falls on or before `after` belongs to the next day (night shift).
+function rollPast(dt, after) {
+  return dt <= after ? new Date(dt.getTime() + DAY_MS) : dt;
 }
 
 /**
@@ -31,13 +38,22 @@ export async function createProductionEntry(input, user) {
     workerName,
     shiftStartTime,
     shiftEndTime,
-    unitsProduced,
     rejectedUnits,
     downtimeMinutes,
     downtimeReason,
+    breakdownStartTime,
+    breakdownEndTime,
+    bitsChanged,
+    unitsInspected,
+    boxes,
     date,
     productionIssueReason,
   } = input;
+
+  // Inspection steps send units inspected; good parts = inspected - rejections.
+  const rejected = Number.isFinite(rejectedUnits) ? rejectedUnits : 0;
+  const unitsProduced =
+    unitsInspected != null ? unitsInspected - rejected : input.unitsProduced;
 
   const [product] = await db
     .select({ id: productsTable.id })
@@ -79,7 +95,21 @@ export async function createProductionEntry(input, user) {
   }
   const dateString = entryDate.toISOString().split("T")[0];
   const startDateTime = combineDateTime(dateString, shiftStartTime);
-  const endDateTime = combineDateTime(dateString, shiftEndTime);
+  const endDateTime = rollPast(combineDateTime(dateString, shiftEndTime), startDateTime);
+
+  // Breakdown window inside the shift; its length becomes the downtime minutes.
+  let breakdownStart = null;
+  let breakdownEnd = null;
+  let downtime = Number.isFinite(downtimeMinutes) ? downtimeMinutes : 0;
+  if (breakdownStartTime && breakdownEndTime) {
+    breakdownStart = combineDateTime(dateString, breakdownStartTime);
+    if (breakdownStart < startDateTime) breakdownStart = new Date(breakdownStart.getTime() + DAY_MS);
+    breakdownEnd = rollPast(combineDateTime(dateString, breakdownEndTime), breakdownStart);
+    if (breakdownStart < startDateTime || breakdownEnd > endDateTime) {
+      throw new AppError("Breakdown time must fall within the shift start and end time", 400);
+    }
+    downtime = Math.round((breakdownEnd - breakdownStart) / 60000);
+  }
 
   let reasonValue = null;
   if (Array.isArray(productionIssueReason)) {
@@ -104,9 +134,14 @@ export async function createProductionEntry(input, user) {
       shiftEndTime: endDateTime,
       date: entryDate,
       unitsProduced,
-      rejectedUnits: Number.isFinite(rejectedUnits) ? rejectedUnits : 0,
-      downtimeMinutes: Number.isFinite(downtimeMinutes) ? downtimeMinutes : 0,
+      rejectedUnits: rejected,
+      downtimeMinutes: downtime,
       downtimeReason: downtimeReason?.trim() || null,
+      breakdownStart,
+      breakdownEnd,
+      bitsChanged: Number.isFinite(bitsChanged) ? bitsChanged : 0,
+      unitsInspected: unitsInspected ?? null,
+      boxes: boxes ?? null,
       productionIssueReason: reasonValue,
     })
     .returning();
@@ -144,6 +179,8 @@ export async function listProductionEntries({ productId, processId } = {}) {
       productName: productsTable.name,
       processId: productionEntryTable.processId,
       processName: processesTable.name,
+      formType: processesTable.formType,
+      category: productsTable.category,
       machineId: productionEntryTable.machineId,
       machineName: machinesTable.name,
       workerName: productionEntryTable.workerName,
@@ -151,6 +188,14 @@ export async function listProductionEntries({ productId, processId } = {}) {
       shiftEndTime: productionEntryTable.shiftEndTime,
       date: productionEntryTable.date,
       unitsProduced: productionEntryTable.unitsProduced,
+      rejectedUnits: productionEntryTable.rejectedUnits,
+      unitsInspected: productionEntryTable.unitsInspected,
+      downtimeMinutes: productionEntryTable.downtimeMinutes,
+      downtimeReason: productionEntryTable.downtimeReason,
+      breakdownStart: productionEntryTable.breakdownStart,
+      breakdownEnd: productionEntryTable.breakdownEnd,
+      bitsChanged: productionEntryTable.bitsChanged,
+      boxes: productionEntryTable.boxes,
       productionIssueReason: productionEntryTable.productionIssueReason,
       createdAt: productionEntryTable.createdAt,
     })

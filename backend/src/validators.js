@@ -20,12 +20,15 @@ export const createUserSchema = z.object({
 export const productSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(5000).optional(),
+  category: z.union([z.string().max(50), z.null()]).optional(),
 });
 
 export const processSchema = z.object({
   name: z.string().min(1).max(255),
   // Target good units/hr at full speed — drives the OEE Performance factor.
   standardRatePerHour: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
+  // Which shift-log form the app shows for this step.
+  formType: z.enum(["machining", "machining_bits", "inspection", "count", "packing"]).optional(),
 });
 
 export const machineSchema = z.object({
@@ -88,15 +91,37 @@ export const productionEntrySchema = z.object({
   workerName: z.string().min(1).max(255).optional(),
   shiftStartTime: timeHHMM,
   shiftEndTime: timeHHMM,
-  unitsProduced: z.coerce.number().int().positive(), // good units
+  // Good units. Optional only when unitsInspected is given (good = inspected - rejected).
+  unitsProduced: z.coerce.number().int().min(0).optional(),
   // OEE inputs (optional): scrap count and downtime minutes for this shift.
   rejectedUnits: z.coerce.number().int().min(0).optional(),
   downtimeMinutes: z.coerce.number().int().min(0).optional(),
   downtimeReason: z.union([z.string(), z.null()]).optional(),
+  // Breakdown window (HH:MM, same shift); downtime minutes are derived from it.
+  breakdownStartTime: z.union([timeHHMM, z.null()]).optional(),
+  breakdownEndTime: z.union([timeHHMM, z.null()]).optional(),
+  // Number of bits changed this shift (drilling / chamfer).
+  bitsChanged: z.coerce.number().int().min(0).optional(),
+  // Inspection: units inspected (rejectedUnits = rejections).
+  unitsInspected: z.union([z.coerce.number().int().min(0), z.null()]).optional(),
+  // Packing: boxes packed.
+  boxes: z.union([z.coerce.number().int().min(0), z.null()]).optional(),
   // Optional entry date (ISO or YYYY-MM-DD); defaults to today.
   date: z.union([z.string(), z.null()]).optional(),
   // One reason, a list of reasons, or none.
   productionIssueReason: z
     .union([z.string(), z.array(z.string()), z.null()])
     .optional(),
-});
+})
+  .refine((v) => v.unitsProduced != null || v.unitsInspected != null, {
+    message: "Enter units produced (or units inspected)",
+    path: ["unitsProduced"],
+  })
+  .refine((v) => v.unitsInspected == null || (v.rejectedUnits ?? 0) <= v.unitsInspected, {
+    message: "Rejections cannot exceed units inspected",
+    path: ["rejectedUnits"],
+  })
+  .refine((v) => !v.breakdownStartTime === !v.breakdownEndTime, {
+    message: "Give both breakdown start and end time",
+    path: ["breakdownEndTime"],
+  });
