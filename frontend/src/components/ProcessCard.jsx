@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { api } from "../services/api";
 
+// Manual "Complete from Inventory" box is retired from the UI — app logs drive progress now.
+const SHOW_MANUAL_COMPLETE = false;
+
 export const ProcessCard = ({ order, process, productId, canManage, onChanged, onError }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [availableMachines, setAvailableMachines] = useState([]);
@@ -175,8 +178,9 @@ export const ProcessCard = ({ order, process, productId, canManage, onChanged, o
             </div>
           )}
 
-          {/* Complete from inventory — anyone on the floor */}
-          {remaining > 0 && (
+          {/* Complete from inventory — hidden: steps now advance from app production logs (auto-match).
+              Flip SHOW_MANUAL_COMPLETE to true to bring the manual override back. */}
+          {SHOW_MANUAL_COMPLETE && remaining > 0 && (
             <div className="p-3 bg-blue-50 rounded-lg">
               <h4 className="font-semibold text-slate-900 mb-1">Complete from Inventory</h4>
               <div className="text-xs text-slate-600 mb-2">
