@@ -69,7 +69,8 @@ export const productProcessMappingTable = pgTable("product_process_mapping", {
 
 export const machinesTable = pgTable("machines", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(), // machine number / code, e.g. "DR1"
+  description: varchar("description", { length: 255 }), // machine name, e.g. "Radial drill"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

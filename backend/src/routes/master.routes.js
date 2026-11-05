@@ -234,7 +234,7 @@ router.get(
     const { processId } = req.query;
     if (processId) {
       const rows = await db
-        .select({ id: machinesTable.id, name: machinesTable.name })
+        .select({ id: machinesTable.id, name: machinesTable.name, description: machinesTable.description })
         .from(machineProcessMappingTable)
         .innerJoin(machinesTable, eq(machinesTable.id, machineProcessMappingTable.machineId))
         .where(eq(machineProcessMappingTable.processId, Number(processId)))

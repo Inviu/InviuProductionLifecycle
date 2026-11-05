@@ -114,6 +114,13 @@ export const api = {
     update: (id, data) => request(`/api/processes/${id}`, { method: "PUT", body: data }),
   },
 
+  machineSetup: {
+    get: () => request("/api/machine-setup"),
+    create: (body) => request("/api/machine-setup/machines", { method: "POST", body }),
+    update: (id, body) => request(`/api/machine-setup/machines/${id}`, { method: "PUT", body }),
+    remove: (id) => request(`/api/machine-setup/machines/${id}`, { method: "DELETE" }),
+  },
+
   agent: {
     overview: (params = {}) => {
       const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();

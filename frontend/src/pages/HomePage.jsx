@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { api } from "../services/api";
-import { Plus, LogOut, Filter, X, Loader, Smartphone, Gauge } from "lucide-react";
+import { Plus, LogOut, Filter, X, Loader, Smartphone, Gauge, Cog } from "lucide-react";
 
 export const HomePage = () => {
   const { user, workOrders, navigateTo, logout, loading, error, loadWorkOrders } =
@@ -116,6 +116,13 @@ export const HomePage = () => {
             >
               <Smartphone className="w-4 h-4" />
               Production Log
+            </button>
+            <button
+              onClick={() => navigateTo("machines")}
+              className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg transition"
+            >
+              <Cog className="w-4 h-4" />
+              Machines
             </button>
             <button
               onClick={() => navigateTo("efficiency")}

@@ -113,6 +113,13 @@
       "when": 1793822998370,
       "tag": "0015_agent_feedback_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793845485159,
+      "tag": "0016_machine_description",
+      "breakpoints": true
     }
   ]
 }
