@@ -1,7 +1,7 @@
 // Efficiency agent engine.
 //
 // Everything is computed from what the floor logs in the app (shift entries:
-// times, pieces, breakdown window + reason, bit changes, QC rejections) plus the
+// times, units, breakdown window + reason, bit changes, QC rejections) plus the
 // open work orders and the standard rate per step. It mirrors the pipeline of
 // the "Line 3 efficiency agent" concept, adapted to a multi-step job shop:
 //
@@ -200,7 +200,7 @@ export function kpi(acc) {
     runMin: acc.runMin,
     downMin: acc.downMin,
     nDown: acc.nDown,
-    // Waterfall pieces (only logs with a standard rate can be split into P/Q losses).
+    // Waterfall units (only logs with a standard rate can be split into P/Q losses).
     speedLossMin: acc.runMinStd > 0 ? Math.max(0, acc.runMinStd - acc.idealMin) : null,
     qualLossMin: acc.runMinStd > 0 ? acc.qualMin : null,
     productiveMin: acc.runMinStd > 0 ? Math.max(0, Math.min(acc.idealMin, acc.runMinStd) - acc.qualMin) : null,
@@ -461,7 +461,7 @@ export async function getOverview({ from, to, family } = {}) {
 
   // ---- WIP queues from open work orders
   const scopedOrders = orders.filter((o) => famOk(o.category));
-  const queue = new Map(); // processId -> pieces waiting (available, not yet done)
+  const queue = new Map(); // processId -> units waiting (available, not yet done)
   for (const o of scopedOrders) {
     for (const s of o.steps) {
       if (s.status === "Completed" || s.status === "Locked") continue;
@@ -470,7 +470,7 @@ export async function getOverview({ from, to, family } = {}) {
     }
   }
 
-  // Recent pace per step: good pieces/day over the last 14 days up to `to`.
+  // Recent pace per step: good units/day over the last 14 days up to `to`.
   const paceFrom = addDays(to, -13);
   const paceAcc = groupBy(scoped.filter((e) => e.day >= paceFrom), (e) => e.processId);
   const paceOf = (pid) => {
@@ -519,7 +519,7 @@ export async function getOverview({ from, to, family } = {}) {
     constraint = {
       stepId: c.id,
       reason: "queue",
-      text: `${n0(c.queue)} pieces are waiting at ${c.name}${
+      text: `${n0(c.queue)} units are waiting at ${c.name}${
         Number.isFinite(c.queueDays) ? `, about ${n1(c.queueDays)} days of work at its recent pace` : ", and nothing was logged there recently"
       }.`,
     };
@@ -530,7 +530,7 @@ export async function getOverview({ from, to, family } = {}) {
       constraint = {
         stepId: c.id,
         reason: "output",
-        text: `No open work orders to show queues, so the constraint is taken as the machining step with the lowest output: ${c.name} at ${n0(c.kpi.goodPerDay)} pieces/day.`,
+        text: `No open work orders to show queues, so the constraint is taken as the machining step with the lowest output: ${c.name} at ${n0(c.kpi.goodPerDay)} units/day.`,
       };
     }
   }
@@ -591,7 +591,7 @@ export async function getOverview({ from, to, family } = {}) {
     }
     const rows = [...map.values()].map((r) => ({ ...r, machines: [...r.machines], type: "breakdown" }));
     if (s.kpi?.speedLossMin > 0.5) rows.push({ cause: "Slow running (below standard rate)", minutes: s.kpi.speedLossMin, type: "speed" });
-    if (s.kpi?.qualLossMin > 0.5) rows.push({ cause: "Rejected pieces", minutes: s.kpi.qualLossMin, type: "quality" });
+    if (s.kpi?.qualLossMin > 0.5) rows.push({ cause: "Rejected units", minutes: s.kpi.qualLossMin, type: "quality" });
     pareto[s.id] = rows.sort((a, b) => b.minutes - a.minutes).slice(0, 8).map((r) => ({ ...r, minutes: r1(r.minutes) }));
   }
 
@@ -644,8 +644,8 @@ export async function getOverview({ from, to, family } = {}) {
     { t: "Calculated KPIs", d: "OEE, availability, performance, quality, MTBF, MTTR, bits per 1,000 and reject rate for every step and machine" },
     { t: "Compared with history", d: basePlant.days ? `Against the median and best of the previous ${basePlant.days} working day${basePlant.days === 1 ? "" : "s"}${basePlant.ready ? "" : " (baseline still building)"}` : "No earlier days logged yet, so figures are compared with the standard rates and the OEE target instead" },
     { t: "Found the constraint", d: constraint ? constraint.text : "No queues or output yet to find it" },
-    { t: "Diagnosed causes", d: findings.length ? `${findings.length} finding${findings.length === 1 ? "" : "s"}, each traced to minutes lost, pieces and breakdown reasons` : "Nothing outside normal to explain" },
-    { t: "Ranked actions", d: findings.length ? "By pieces recoverable per day × value at the constraint × confidence ÷ effort" : "Nothing to rank" },
+    { t: "Diagnosed causes", d: findings.length ? `${findings.length} finding${findings.length === 1 ? "" : "s"}, each traced to minutes lost, units and breakdown reasons` : "Nothing outside normal to explain" },
+    { t: "Ranked actions", d: findings.length ? "By units recoverable per day × value at the constraint × confidence ÷ effort" : "Nothing to rank" },
   ];
 
   // ---- per product family: OEE and dispatched, for the end of each line
@@ -788,7 +788,7 @@ function diagnose(ctx) {
     const step = stepOf.get(m.stepId);
     const days = Math.max(1, k.days);
     const hrs = k.plannedMin / 60;
-    const rate = k.ratePerHr || (m.std || 0); // pieces per run hour, to price lost minutes
+    const rate = k.ratePerHr || (m.std || 0); // units per run hour, to price lost minutes
     const label = m.machineId ? `${m.name} (${m.stepName})` : m.stepName;
 
     // R1 breakdown time above normal
@@ -850,10 +850,10 @@ function diagnose(ctx) {
           rule: "speed", scope: `machine:${m.key}`, stepId: m.stepId, machine: label,
           title: `${label} is running at ${Math.round(k.P * 100)}% of its standard rate`,
           evidence: [
-            `It made ${n0(k.ratePerHr)} pieces per running hour against a standard of ${m.std}/hr. Slow running cost ${n0(k.speedLossMin)} minutes${normalSpeed != null ? `, ${n0(excessSpeed)} more than normal` : ""}, without any breakdown logged for it.`,
+            `It made ${n0(k.ratePerHr)} units per running hour against a standard of ${m.std}/hr. Slow running cost ${n0(k.speedLossMin)} minutes${normalSpeed != null ? `, ${n0(excessSpeed)} more than normal` : ""}, without any breakdown logged for it.`,
             b?.ready && b.ratePerHr ? `Its own normal rate is ${n0(b.ratePerHr)}/hr.` : `If ${m.std}/hr is not realistic for this step, correct the standard rate so the numbers stay honest.`,
           ],
-          action: `Watch a cycle on ${label} with the operator: check feeds, fixtures and material handling between pieces. If the standard of ${m.std}/hr can’t be met on this machine, update it under Standard rates.`,
+          action: `Watch a cycle on ${label} with the operator: check feeds, fixtures and material handling between units. If the standard of ${m.std}/hr can’t be met on this machine, update it under Standard rates.`,
           recPcsPerDay: (Math.max(0, excessSpeed) * 0.5 / days / 60) * m.std,
           recMinPerDay: Math.max(0, excessSpeed) * 0.5 / days,
           effortH: 0.5, effortTxt: "30 min on the floor",
@@ -862,13 +862,13 @@ function diagnose(ctx) {
       }
     }
 
-    // R5 bits per 1,000 pieces above normal
+    // R5 bits per 1,000 units above normal
     if (m.formType === "machining_bits" && k.bitsPer1000 != null && k.bits >= 2) {
       const nb = b?.ready ? b.bitsPer1000 : null;
       if (nb != null && k.bitsPer1000 > nb * 1.5 && k.bitsPer1000 - nb >= 0.5) {
         push({
           rule: "bits", scope: `machine:${m.key}`, stepId: m.stepId, machine: label,
-          title: `${label} is using ${n1(k.bitsPer1000)} bits per 1,000 pieces`,
+          title: `${label} is using ${n1(k.bitsPer1000)} bits per 1,000 units`,
           evidence: [`Its normal is ${n1(nb)} per 1,000. ${k.bits} bits were changed in this period.`, `Faster bit wear usually comes from coolant, feed/speed settings, or a weak batch of bits.`],
           action: `Check coolant flow and the feed/speed on ${label}, and compare the current box of bits with the last good batch.`,
           recPcsPerDay: 0, effortH: 0.5, effortTxt: "30 min",
@@ -899,11 +899,11 @@ function diagnose(ctx) {
           rule: "quality", scope: `step:${s.id}|${pid}`, stepId: s.id, machine: s.name,
           title: `${c.name}: ${pctTxt(rate)} rejected at ${s.name}`,
           evidence: [
-            `${n0(c.rej)} of ${n0(total)} pieces rejected, against ${normal != null ? `a normal ${pctTxt(normal)}` : "a 2% guide (no history yet)"}. That is about ${n0(extra)} extra pieces scrapped.`,
+            `${n0(c.rej)} of ${n0(total)} units rejected, against ${normal != null ? `a normal ${pctTxt(normal)}` : "a 2% guide (no history yet)"}. That is about ${n0(extra)} extra units scrapped.`,
             plating ? "These are plating rejections, so the cause is most likely at the plating vendor, not on our machines." : "These are measurement rejections, so the cause is upstream in machining (cutting, tip grinding, drilling or chamfer).",
           ],
           action: plating
-            ? `Hold the remaining pieces from that plating batch, share the reject count and samples with the plating vendor, and ask for a corrective action.`
+            ? `Hold the remaining units from that plating batch, share the reject count and samples with the plating vendor, and ask for a corrective action.`
             : `Measure a sample of ${c.name} at each machining step to find where it drifts out of size, and check any setting changed recently on those machines.`,
           recPcsPerDay: extra / Math.max(1, c.days.size),
           effortH: plating ? 0.5 : 1, effortTxt: plating ? "30 min call" : "1 h measuring",
@@ -920,10 +920,10 @@ function diagnose(ctx) {
       const idle = c.idleMachines;
       push({
         rule: "flow", scope: `step:${c.id}`, stepId: c.id, machine: c.name, weight: 1,
-        title: `${n0(c.queue)} pieces are waiting at ${c.name}`,
+        title: `${n0(c.queue)} units are waiting at ${c.name}`,
         evidence: [
           Number.isFinite(c.queueDays)
-            ? `That is about ${n1(c.queueDays)} days of work at its recent pace of ${n0(c.pacePerDay)} pieces/day. Everything after it can only go as fast as this step.`
+            ? `That is about ${n1(c.queueDays)} days of work at its recent pace of ${n0(c.pacePerDay)} units/day. Everything after it can only go as fast as this step.`
             : `Nothing was logged at ${c.name} in the last 14 days, so this work isn’t moving.`,
           idle.length ? `${idle.length} of its ${c.machines.length} machines logged nothing in this period: ${idle.slice(0, 8).join(", ")}${idle.length > 8 ? "…" : ""}.` : `All of its machines are already logging work.`,
         ],
@@ -932,7 +932,7 @@ function diagnose(ctx) {
           : `Add a shift or overtime at ${c.name}, and protect it from breakdowns and waiting for material — it sets the pace for every order.`,
         recPcsPerDay: c.pacePerDay ? c.pacePerDay * 0.3 : 0,
         effortH: 1, effortTxt: "1 shift decision",
-        metric: { kind: "pace", key: String(c.id), label: `${c.name} pieces/day`, value: r1(c.kpi?.goodPerDay ?? c.pacePerDay) },
+        metric: { kind: "pace", key: String(c.id), label: `${c.name} units/day`, value: r1(c.kpi?.goodPerDay ?? c.pacePerDay) },
       });
     }
   }
@@ -943,7 +943,7 @@ function diagnose(ctx) {
       rule: "due", scope: `order:${o.orderId}`, stepId: o.slowestStepId, machine: o.code, weight: 1,
       title: `${o.code} (${o.product}) will miss its due date by about ${o.lateBy} day${o.lateBy === 1 ? "" : "s"}`,
       evidence: [
-        `${n0(o.remaining)} of ${n0(o.quantity)} pieces still to dispatch. At the recent pace of ${n0(o.slowestPace)} pieces/day at ${o.slowestStep}, it finishes around ${fmtDay(o.projectedFinish)} against a due date of ${fmtDay(o.due)}.`,
+        `${n0(o.remaining)} of ${n0(o.quantity)} units still to dispatch. At the recent pace of ${n0(o.slowestPace)} units/day at ${o.slowestStep}, it finishes around ${fmtDay(o.projectedFinish)} against a due date of ${fmtDay(o.due)}.`,
       ],
       action: `Move ${o.code} to the front of the queue at ${o.slowestStep}, or tell ${o.customer} now about a new date.`,
       recPcsPerDay: 0, effortH: 0.25, effortTxt: "15 min",
@@ -956,8 +956,8 @@ function diagnose(ctx) {
     push({
       rule: "rates", scope: "rates", kind: "Data",
       title: `${noStd.length} step${noStd.length === 1 ? " has" : "s have"} no standard rate`,
-      evidence: [`${noStd.map((s) => s.name).join(", ")} ${noStd.length === 1 ? "has" : "have"} logs but no target pieces per hour, so Performance and OEE can’t be calculated there.`],
-      action: `Open Standard rates on this page and enter the pieces per hour each step should make at full speed.`,
+      evidence: [`${noStd.map((s) => s.name).join(", ")} ${noStd.length === 1 ? "has" : "have"} logs but no target units per hour, so Performance and OEE can’t be calculated there.`],
+      action: `Open Standard rates on this page and enter the units per hour each step should make at full speed.`,
       recPcsPerDay: null, effortH: 0.25, effortTxt: "15 min",
     });
   }
@@ -969,7 +969,7 @@ function diagnose(ctx) {
       rule: "entry", scope: "entries", kind: "Data",
       title: `${odd.length} shift log${odd.length === 1 ? " looks" : "s look"} mistyped`,
       evidence: [`${odd.slice(0, 3).map((e) => `${e.stepName}${e.machineName ? ` ${e.machineName}` : ""} on ${fmtDay(e.day)} by ${e.worker}`).join("; ")}${odd.length > 3 ? "…" : ""}: either more than 2.5× the standard rate or a shift longer than 14 hours. These skew the numbers.`],
-      action: `Check these logs in the Production Log with the operators and correct the pieces or times.`,
+      action: `Check these logs in the Production Log with the operators and correct the units or times.`,
       recPcsPerDay: null, effortH: 0.25, effortTxt: "15 min",
     });
   }

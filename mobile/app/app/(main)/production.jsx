@@ -30,10 +30,10 @@ function formSpec(step, product) {
   const name = (step?.name || '').toLowerCase();
   const sheetMetal = (product?.category || '').toLowerCase().includes('sheet');
 
-  let unitsLabel = 'Total pcs made';
+  let unitsLabel = 'Total units made';
   if (type === 'machining' && name === 'blanking') unitsLabel = 'Total parts stamped';
   else if (type === 'machining' && sheetMetal) unitsLabel = 'Total parts made';
-  else if (type === 'count' && name === 'dispatched') unitsLabel = 'Total pcs dispatched';
+  else if (type === 'count' && name === 'dispatched') unitsLabel = 'Total units dispatched';
   else if (type === 'count' && name === 'ready for dispatch') unitsLabel = 'Total parts for dispatch';
   else if (type === 'count') unitsLabel = 'Number of units';
   else if (type === 'packing') unitsLabel = 'Total units packed';

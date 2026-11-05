@@ -170,8 +170,8 @@ export const AgentPage = () => {
             <Learning data={data} onReset={async () => { await api.agent.resetLearning(); load(false); }} />
 
             <footer className="mt-10 pt-4 text-sm muted max-w-[92ch]" style={{ borderTop: "1px solid var(--line)" }}>
-              Built from what the floor logs in the app: shift times, pieces, breakdown time and reason, bit changes and QC rejections, plus open work orders
-              and the standard rate per step. OEE = Availability (running time ÷ planned time) × Performance (pieces ÷ what the standard rate allows in the
+              Built from what the floor logs in the app: shift times, units, breakdown time and reason, bit changes and QC rejections, plus open work orders
+              and the standard rate per step. OEE = Availability (running time ÷ planned time) × Performance (units ÷ what the standard rate allows in the
               running time) × Quality (good ÷ inspected, from the QC steps). “Normal” is the median of the previous 20 days with logs; “best” is their 90th
               percentile. The constraint is the step with the most days of work waiting in open orders. Plating, pallet and dispatch are untimed moves, so they
               have counts but no OEE. Not measured here (unlike a PLC-fed line): stops shorter than a logged breakdown, changeover time, and machine sensors such
@@ -379,7 +379,7 @@ function Briefing({ data, onFeedback, onSelect }) {
         <Stat v={p.baseline?.ready ? pct(p.baseline.OEE) : "—"} k={p.baseline?.days ? `Normal (median of ${p.baseline.days} days)` : "Normal (no history yet)"} />
         <Stat v={p.baseline?.ready ? pct(p.baseline.best) : "—"} k="Best demonstrated" />
         <Stat v={pct(data.settings.targetOee, 0)} k="Target" />
-        <Stat v={n0(p.dispatched)} k="Pieces dispatched" />
+        <Stat v={n0(p.dispatched)} k="Units dispatched" />
       </div>
       {data.findings.length === 0 ? (
         <p className="muted py-3">No recommendations. The agent flags anything that drifts outside each step’s normal range, work piling up, or orders at risk.</p>
@@ -438,7 +438,7 @@ function Action({ f, rank, vpp, onFeedback, onSelect }) {
             <span>Better data, not direct output</span>
           ) : f.recPcsPerDay ? (
             <>
-              <span>Recovers about <strong className="cond text-[1.05rem]" style={{ color: "var(--ink)" }}>{n0(f.recPcsPerDay)}</strong> pieces/day</span>
+              <span>Recovers about <strong className="cond text-[1.05rem]" style={{ color: "var(--ink)" }}>{n0(f.recPcsPerDay)}</strong> units/day</span>
               {f.recMinPerDay ? <span><strong className="cond text-[1.05rem]" style={{ color: "var(--ink)" }}>{n0(f.recMinPerDay)}</strong> min/day</span> : null}
               {vpp ? <span><strong className="cond text-[1.05rem]" style={{ color: "var(--ink)" }}>₹{n0(f.value)}</strong>/day</span> : null}
             </>
@@ -512,7 +512,7 @@ function Forecast({ forecast }) {
       ) : (
         <>
           <p className="text-sm muted mt-1">
-            {n0(fc.totalDispatched)} of {n0(fc.totalQuantity)} pieces dispatched across {fc.orders.length} open order{fc.orders.length === 1 ? "" : "s"}
+            {n0(fc.totalDispatched)} of {n0(fc.totalQuantity)} units dispatched across {fc.orders.length} open order{fc.orders.length === 1 ? "" : "s"}
             {fc.atRisk ? <>, <b style={{ color: "var(--bad)" }}>{fc.atRisk} at risk</b></> : ""}.
           </p>
           <ul className="list-none p-0 mt-2">
@@ -620,7 +620,7 @@ function Waterfall({ s }) {
       </svg>
       <div className="grid gap-x-5 gap-y-2.5 mt-3 text-[.9rem]" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))" }}>
         <Formula label="Availability" v={pct(k.A)} sub={`${n0(k.runMin)} run ÷ ${n0(k.plannedMin)} planned min`} />
-        <Formula label="Performance" v={pct(k.P)} sub={s.std ? `${n0(k.good + k.rej)} pcs ÷ (${s.std}/hr × run time)` : "needs a standard rate"} />
+        <Formula label="Performance" v={pct(k.P)} sub={s.std ? `${n0(k.good + k.rej)} units ÷ (${s.std}/hr × run time)` : "needs a standard rate"} />
         <Formula label="Quality" v={pct(k.Q, 2)} sub={k.rej ? `${n0(k.good)} good ÷ ${n0(k.good + k.rej)} inspected` : "no rejections logged at this step"} />
         <Formula label="OEE" v={pct(k.OEE)} sub={b?.ready ? `normal ${pct(b.OEE)}, best ${pct(b.best)}` : `history: ${b?.days ?? 0} of 20 days`} />
       </div>
@@ -759,7 +759,7 @@ function Signal({ s, rows }) {
   const b = s.baseline;
   let title, sub, value, fmt, normal, bad;
   if (s.formType === "machining_bits") {
-    title = "Bits per 1,000 pieces";
+    title = "Bits per 1,000 units";
     sub = `Tool wear signal from the bit-change answers. ${b?.ready && b.bitsPer1000 != null ? `Dashed line is normal (${n1(b.bitsPer1000)}).` : "No history yet for a normal line."}`;
     value = (r) => r.bitsPer1000;
     fmt = (v) => n1(v);
@@ -767,7 +767,7 @@ function Signal({ s, rows }) {
     bad = (v) => normal != null && v > normal * 1.5;
   } else if (s.formType === "inspection") {
     title = s.name.toLowerCase().includes("plating") ? "Plating rejections" : "Measurement rejections";
-    sub = `Share of inspected pieces rejected. ${b?.ready && b.rejRate != null ? `Dashed line is normal (${pct(b.rejRate)}).` : "No history yet for a normal line."}`;
+    sub = `Share of inspected units rejected. ${b?.ready && b.rejRate != null ? `Dashed line is normal (${pct(b.rejRate)}).` : "No history yet for a normal line."}`;
     value = (r) => r.rejRate;
     fmt = (v) => pct(v, 1);
     normal = b?.ready ? b.rejRate : null;
@@ -813,7 +813,7 @@ function KpiTable({ data, sel, onSelect }) {
     ["Availability", (k) => pct(k.A), (b) => pct(b?.A)],
     ["Performance", (k) => pct(k.P), (b) => pct(b?.P)],
     ["Quality", (k) => pct(k.Q, 2), (b) => pct(b?.Q, 2)],
-    ["Pieces / hr", (k) => n0(k.ratePerHr), (b) => n0(b?.ratePerHr)],
+    ["Units / hr", (k) => n0(k.ratePerHr), (b) => n0(b?.ratePerHr)],
     ["Breakdown min", (k) => n0(k.downMin), null],
     ["MTBF h", (k) => (k.MTBF ? n1(k.MTBF) : "none"), (b) => (b?.MTBF ? n1(b.MTBF) : "—")],
     ["MTTR min", (k) => (k.MTTR ? n0(k.MTTR) : "none"), (b) => (b?.MTTR ? n0(b.MTTR) : "—")],
@@ -1118,8 +1118,8 @@ function SettingsDrawer({ data, onClose, onSaved }) {
         </div>
         {err && <p className="text-sm mt-2" style={{ color: "var(--bad)" }}>{err}</p>}
         <label className="block mt-4">
-          <span className="font-semibold text-sm">Value of one good piece (₹)</span>
-          <span className="block text-xs muted">Optional. Turns recovered pieces into ₹ per day on each recommendation.</span>
+          <span className="font-semibold text-sm">Value of one good unit (₹)</span>
+          <span className="block text-xs muted">Optional. Turns recovered units into ₹ per day on each recommendation.</span>
           <input type="number" min="0" step="0.01" value={vpp} onChange={(e) => setVpp(e.target.value)} className="mt-1 w-40 px-2 py-1.5 rounded" style={{ border: "1px solid var(--line)" }} />
         </label>
         <label className="block mt-4">
@@ -1127,7 +1127,7 @@ function SettingsDrawer({ data, onClose, onSaved }) {
           <span className="block text-xs muted">Used for colours until there are 3+ days of history. Metal fabrication typically runs 55–65%; world-class is 85%.</span>
           <input type="number" min="10" max="100" value={target} onChange={(e) => setTarget(e.target.value)} className="mt-1 w-24 px-2 py-1.5 rounded" style={{ border: "1px solid var(--line)" }} />
         </label>
-        <h3 className="font-semibold text-sm mt-5">Standard rates (good pieces per hour, per machine, at full speed)</h3>
+        <h3 className="font-semibold text-sm mt-5">Standard rates (good units per hour, per machine, at full speed)</h3>
         <p className="text-xs muted">Drives Performance. A step without a rate shows no OEE.</p>
         <div className="mt-2 space-y-1.5">
           {procs.map((p) => (

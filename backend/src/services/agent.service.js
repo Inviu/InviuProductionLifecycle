@@ -16,8 +16,8 @@ const r1 = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10) 
 function systemPrompt(ov) {
   return `You are the efficiency agent for Inviu's production floor. The plant makes rod components (spindles: Cutting → Tip grinding → Drilling → Chamfer → Quality check → plating → Quality check after plating → Packing → Pallet → Dispatch) and sheet-metal parts (Blanking, Bending, Punching, Notching on power presses PP1–PP14, then plating, QC, packing, dispatch). Machines: TR1–TR4 cutting, BG1–BG3 tip grinding, DR1–DR13 drilling, CM1–CM2 chamfer, PP1–PP14 presses.
 You help the production manager understand efficiency and decide what to do next. The period being viewed is ${ov.period.from} to ${ov.period.to}${ov.period.family ? `, ${ov.period.family} only` : ""}.
-Always get figures by calling the tools; never invent numbers. Keep answers short and practical: lead with the answer, cite the specific figures, machines and breakdown reasons, and end with one concrete next step when it helps. Plain text, no markdown headings or tables. Use pieces, minutes and days${ov.settings.valuePerPiece ? `; one good piece is worth ₹${ov.settings.valuePerPiece}` : ""}.
-OEE = Availability × Performance × Quality. Availability comes from logged breakdown time, Performance from pieces per running hour against the step's standard rate, Quality from QC rejections. The constraint is the step with the most days of work waiting in open work orders; time recovered there is worth the most. Logistics steps (plating moves, pallet, dispatch) are counts only and have no OEE. If data is missing (no standard rate, no history), say so plainly.`;
+Always get figures by calling the tools; never invent numbers. Keep answers short and practical: lead with the answer, cite the specific figures, machines and breakdown reasons, and end with one concrete next step when it helps. Plain text, no markdown headings or tables. Use units, minutes and days${ov.settings.valuePerPiece ? `; one good unit is worth ₹${ov.settings.valuePerPiece}` : ""}.
+OEE = Availability × Performance × Quality. Availability comes from logged breakdown time, Performance from units per running hour against the step's standard rate, Quality from QC rejections. The constraint is the step with the most days of work waiting in open work orders; time recovered there is worth the most. Logistics steps (plating moves, pallet, dispatch) are counts only and have no OEE. If data is missing (no standard rate, no history), say so plainly.`;
 }
 
 function buildTools(ov) {
@@ -29,7 +29,7 @@ function buildTools(ov) {
     k && {
       oee_pct: pct(k.OEE), availability_pct: pct(k.A), performance_pct: pct(k.P), quality_pct: pct(k.Q),
       normal_oee_pct: pct(b?.OEE), best_oee_pct: pct(b?.best), baseline_days: b?.days ?? 0,
-      good_pieces: k.good, rejected: k.rej, pieces_per_running_hour: r1(k.ratePerHr), normal_pieces_per_hour: r1(b?.ratePerHr),
+      good_units: k.good, rejected: k.rej, units_per_running_hour: r1(k.ratePerHr), normal_units_per_hour: r1(b?.ratePerHr),
       breakdown_minutes: r1(k.downMin), breakdowns: k.nDown, mtbf_hours: r1(k.MTBF), mttr_minutes: r1(k.MTTR),
       slow_running_minutes: r1(k.speedLossMin), reject_rate_pct: pct(k.rejRate),
       bits_changed: k.bits, bits_per_1000: r1(k.bitsPer1000), normal_bits_per_1000: r1(b?.bitsPer1000), days_logged: k.days,
@@ -38,12 +38,12 @@ function buildTools(ov) {
   return [
     {
       name: "get_plant_summary",
-      description: "Plant-level status for the period: OEE and factors vs normal and best, good pieces, dispatched, the constraint step and why, open orders and how many are at risk.",
+      description: "Plant-level status for the period: OEE and factors vs normal and best, good units, dispatched, the constraint step and why, open orders and how many are at risk.",
       input_schema: { type: "object", properties: {} },
       run: () => ({
         period: ov.period, ...kpiOut(ov.plant.kpi, ov.plant.baseline), target_oee_pct: pct(ov.settings.targetOee), world_class_oee_pct: 85,
-        dispatched_pieces: ov.plant.dispatched, constraint: ov.constraint ? { step: ov.steps.find((s) => s.id === ov.constraint.stepId)?.name, why: ov.constraint.text } : null,
-        open_orders: ov.forecast.orders.length, orders_at_risk: ov.forecast.atRisk, pieces_remaining_on_orders: ov.forecast.totalRemaining,
+        dispatched_units: ov.plant.dispatched, constraint: ov.constraint ? { step: ov.steps.find((s) => s.id === ov.constraint.stepId)?.name, why: ov.constraint.text } : null,
+        open_orders: ov.forecast.orders.length, orders_at_risk: ov.forecast.atRisk, units_remaining_on_orders: ov.forecast.totalRemaining,
       }),
     },
     {
@@ -55,7 +55,7 @@ function buildTools(ov) {
         if (!s) return { error: `Unknown step. Use one of: ${steps.join(", ")}` };
         return {
           step: s.name, form: s.formType, standard_rate_per_hour: s.std, ...kpiOut(s.kpi, s.baseline),
-          pieces_waiting_in_orders: s.queue, recent_pace_per_day: s.pacePerDay, days_of_work_waiting: Number.isFinite(s.queueDays) ? r1(s.queueDays) : "no recent output",
+          units_waiting_in_orders: s.queue, recent_pace_per_day: s.pacePerDay, days_of_work_waiting: Number.isFinite(s.queueDays) ? r1(s.queueDays) : "no recent output",
           machines: s.machines.map((m) => m.name), idle_machines_this_period: s.idleMachines,
         };
       },
@@ -82,7 +82,7 @@ function buildTools(ov) {
     },
     {
       name: "get_daily_trend",
-      description: "Day-by-day OEE, good pieces, breakdown minutes, reject rate and bits per 1,000 for one step (or the whole plant if step is omitted), to see when a problem started.",
+      description: "Day-by-day OEE, good units, breakdown minutes, reject rate and bits per 1,000 for one step (or the whole plant if step is omitted), to see when a problem started.",
       input_schema: { type: "object", properties: { step: { type: "string", enum: steps } } },
       run: ({ step } = {}) => {
         const s = step ? stepByName(step) : null;
@@ -92,12 +92,12 @@ function buildTools(ov) {
     },
     {
       name: "get_findings",
-      description: "The agent's ranked findings and recommended actions, with evidence, pieces recoverable per day, confidence, effort and any feedback already given.",
+      description: "The agent's ranked findings and recommended actions, with evidence, units recoverable per day, confidence, effort and any feedback already given.",
       input_schema: { type: "object", properties: {} },
       run: () =>
         ov.findings.slice(0, 8).map((f, i) => ({
           rank: i + 1, title: f.title, kind: f.kind, where: f.machine, on_constraint: f.onConstraint, evidence: f.evidence, action: f.action,
-          pieces_recoverable_per_day: f.recPcsPerDay, value_per_day_rupees: f.value, confidence_pct: Math.round(f.conf * 100), effort: f.effortTxt,
+          units_recoverable_per_day: f.recPcsPerDay, value_per_day_rupees: f.value, confidence_pct: Math.round(f.conf * 100), effort: f.effortTxt,
           feedback: f.feedback?.action || null,
         })),
     },
